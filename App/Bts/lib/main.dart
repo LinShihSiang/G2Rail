@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:g2railsample/services/payment_service.dart';
 import 'package:g2railsample/pages/home_page.dart';
+import 'repos/product_repo.dart';
 
 void main() {
   PaymentService.initialize();
-  runApp(const MyApp());
+  final repo = InMemoryProductRepo();
+  runApp(MyApp(repo: repo));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final ProductRepo repo;
+  const MyApp({super.key, required this.repo});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'G2Rail Travel',
+      title: 'Travel Agency',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: HomePage(repo: repo),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:g2railsample/pages/home_page.dart';
+import '../repos/product_repo.dart';
 
 class ConfirmationPage extends StatelessWidget {
   final Map<String, dynamic> orderDetails;
@@ -323,8 +324,9 @@ class ConfirmationPage extends StatelessWidget {
   }
 
   void _goHome(BuildContext context) {
+    final repo = InMemoryProductRepo();
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const HomePage()),
+      MaterialPageRoute(builder: (context) => HomePage(repo: repo)),
       (route) => false,
     );
   }

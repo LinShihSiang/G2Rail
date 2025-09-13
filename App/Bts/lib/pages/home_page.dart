@@ -1,196 +1,133 @@
 import 'package:flutter/material.dart';
-import 'package:g2railsample/pages/product_page.dart';
+import '../repos/product_repo.dart';
+import '../services/price_formatter.dart';
+import '../repos/models/product.dart';
+import 'product_schloss_neuschwanstein_page.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final ProductRepo repo;
+  const HomePage({super.key, required this.repo});
 
-  // Sample travel products data
-  final List<Map<String, dynamic>> _travelProducts = const [
-    {
-      'id': 'neuschwanstein',
-      'title': 'Schloss Neuschwanstein',
-      'description': 'Visit the famous fairy-tale castle in Bavaria',
-      'price': 89.99,
-      'image': 'assets/neuschwanstein.jpg', // TODO: Add actual assets
-      'duration': '1 Day',
-      'includes': ['Transportation', 'Castle Tour', 'Guide'],
-    },
-    {
-      'id': 'rhine_valley',
-      'title': 'Rhine Valley Tour',
-      'description': 'Scenic train journey through the Rhine Valley',
-      'price': 129.99,
-      'image': 'assets/rhine.jpg', // TODO: Add actual assets
-      'duration': '2 Days',
-      'includes': ['Train Travel', 'Hotel', 'Meals'],
-    },
-    {
-      'id': 'black_forest',
-      'title': 'Black Forest Adventure',
-      'description': 'Explore the mystical Black Forest region',
-      'price': 159.99,
-      'image': 'assets/black_forest.jpg', // TODO: Add actual assets
-      'duration': '3 Days',
-      'includes': ['Transportation', 'Accommodation', 'Activities'],
-    },
-  ];
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late Future<List<Product>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.repo.getAll();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('G2Rail Travel'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        elevation: 0,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.inversePrimary,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Discover Amazing',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Text(
-                  'Travel Experiences',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Book your perfect European adventure',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text(
-              'Popular Travel Packages',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _travelProducts.length,
-              itemBuilder: (context, index) {
-                final product = _travelProducts[index];
-                return _buildProductCard(context, product);
-              },
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('Products')),
+      body: FutureBuilder<List<Product>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            return Center(child: Text('Failed to load products: ${snap.error}'));
+          }
+          final items = snap.data ?? const [];
+          if (items.isEmpty) {
+            return const Center(child: Text('No products available'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) => ProductCard(product: items[i]),
+          );
+        },
       ),
     );
   }
+}
 
-  Widget _buildProductCard(BuildContext context, Map<String, dynamic> product) {
+class ProductCard extends StatelessWidget {
+  final Product product;
+  const ProductCard({super.key, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final priceText = formatPrice(product.price, product.currency);
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () => _navigateToProduct(context, product),
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                color: Colors.grey[300],
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.image,
-                  size: 50,
-                  color: Colors.grey,
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ProductPage(product: {
+                'id': product.id,
+                'title': product.name,
+                'description': product.propaganda,
+                'price': product.price.toDouble(),
+                'image': product.imageUrl,
+                'duration': '1 Day',
+                'includes': ['Transportation', 'Castle Tour', 'Guide'],
+              }),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    product.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: Color(0xFFE0E0E0),
+                      child: Center(child: Icon(Icons.image_not_supported)),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 10),
+              Text(
+                product.name,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                product.propaganda,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                    ),
+              ),
+              const SizedBox(height: 10),
+              Row(
                 children: [
+                  const Icon(Icons.attach_money, size: 18),
                   Text(
-                    product['title'],
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product['description'],
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        product['duration'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                    priceText,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '\$${product['price'].toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  void _navigateToProduct(BuildContext context, Map<String, dynamic> product) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ProductPage(product: product),
       ),
     );
   }
