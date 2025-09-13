@@ -28,7 +28,7 @@ class TicketPage extends StatefulWidget {
 
 class _TicketPageState extends State<TicketPage> {
   final _formKey = GlobalKey<FormState>();
-  String passportName = '';
+  List<String> passportNames = [''];
   int adults = 1;
   int children = 0;
   DateTime? selectedDate;
@@ -45,12 +45,16 @@ class _TicketPageState extends State<TicketPage> {
     final totalTickets = adults + children;
     final dateString =
         '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}';
+    
+    final passportNamesText = passportNames.asMap().entries
+        .map((entry) => '大人${entry.key + 1}: ${entry.value}')
+        .join('\n');
 
-    final subject = Uri.encodeComponent('DoDoMan天鵝堡門票訂單 - $passportName');
+    final subject = Uri.encodeComponent('DoDoMan天鵝堡門票訂單 - ${passportNames.first}');
     final body = Uri.encodeComponent(
       '天鵝堡門票訂單資訊\n'
       '====================\n\n'
-      '護照姓名: $passportName\n'
+      '護照姓名:\n$passportNamesText\n'
       '大人數量: $adults 位\n'
       '小孩數量: $children 位\n'
       '總票數: $totalTickets 張\n'
@@ -132,18 +136,69 @@ class _TicketPageState extends State<TicketPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: '護照姓名',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                        hintText: '請輸入與護照相同的姓名',
+                    // 參觀日期
+                    InkWell(
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            selectedDate = picked;
+                          });
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: '參觀日期',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
+                        child: Text(
+                          selectedDate == null
+                              ? '請選擇參觀日期'
+                              : '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}',
+                          style: TextStyle(
+                            color: selectedDate == null
+                                ? Colors.grey
+                                : Colors.black,
+                          ),
+                        ),
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? '請輸入護照姓名' : null,
-                      onSaved: (value) => passportName = value ?? '',
                     ),
                     const SizedBox(height: 16),
+                    // 參觀時段
+                    DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: '參觀時段',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.access_time),
+                      ),
+                      initialValue: timeSlot,
+                      items: const [
+                        DropdownMenuItem(
+                          value: '上午',
+                          child: Text('上午 (09:00-12:00)'),
+                        ),
+                        DropdownMenuItem(
+                          value: '下午',
+                          child: Text('下午 (13:00-17:00)'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          timeSlot = value ?? '上午';
+                        });
+                      },
+                      validator: (value) => value == null ? '請選擇參觀時段' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // 大人小孩數量
                     Row(
                       children: [
                         Expanded(
@@ -169,6 +224,14 @@ class _TicketPageState extends State<TicketPage> {
                                 int newAdults = int.tryParse(value) ?? 1;
                                 if (newAdults < 1) newAdults = 1; // 確保至少有1位大人
                                 adults = newAdults;
+                                // 調整護照姓名列表長度
+                                if (newAdults > passportNames.length) {
+                                  passportNames.addAll(
+                                    List.generate(newAdults - passportNames.length, (index) => ''),
+                                  );
+                                } else if (newAdults < passportNames.length) {
+                                  passportNames = passportNames.take(newAdults).toList();
+                                }
                               });
                             },
                           ),
@@ -205,65 +268,37 @@ class _TicketPageState extends State<TicketPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    InkWell(
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365),
+                    // 護照姓名輸入框（根據大人數量動態生成）
+                    ...List.generate(adults, (index) {
+                      return Column(
+                        children: [
+                          TextFormField(
+                            decoration: InputDecoration(
+                              labelText: '大人${index + 1}護照姓名',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.person),
+                              hintText: '請輸入與護照相同的姓名',
+                            ),
+                            validator: (value) =>
+                                value == null || value.isEmpty ? '請輸入護照姓名' : null,
+                            onSaved: (value) {
+                              if (index < passportNames.length) {
+                                passportNames[index] = value ?? '';
+                              }
+                            },
+                            onChanged: (value) {
+                              setState(() {
+                                if (index < passportNames.length) {
+                                  passportNames[index] = value;
+                                }
+                              });
+                            },
+                            initialValue: index < passportNames.length ? passportNames[index] : '',
                           ),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            selectedDate = picked;
-                          });
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: '參觀日期',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(
-                          selectedDate == null
-                              ? '請選擇參觀日期'
-                              : '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}',
-                          style: TextStyle(
-                            color: selectedDate == null
-                                ? Colors.grey
-                                : Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      decoration: const InputDecoration(
-                        labelText: '參觀時段',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.access_time),
-                      ),
-                      initialValue: timeSlot,
-                      items: const [
-                        DropdownMenuItem(
-                          value: '上午',
-                          child: Text('上午 (09:00-12:00)'),
-                        ),
-                        DropdownMenuItem(
-                          value: '下午',
-                          child: Text('下午 (13:00-17:00)'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          timeSlot = value ?? '上午';
-                        });
-                      },
-                      validator: (value) => value == null ? '請選擇參觀時段' : null,
-                    ),
+                          if (index < adults - 1) const SizedBox(height: 16),
+                        ],
+                      );
+                    }),
                     const SizedBox(height: 20),
                     // 票價顯示區域
                     Container(
@@ -355,13 +390,16 @@ class _TicketPageState extends State<TicketPage> {
 
                               // 發送成功後顯示確認對話框
                               final totalTickets = adults + children;
+                              final passportNamesDisplay = passportNames.asMap().entries
+                                  .map((entry) => '大人${entry.key + 1}: ${entry.value}')
+                                  .join('\n');
                               if (context.mounted) {
                                 showDialog(
                                   context: context,
                                   builder: (context) => AlertDialog(
                                     title: const Text('訂單已送出'),
                                     content: Text(
-                                      '護照姓名: $passportName\n'
+                                      '護照姓名:\n$passportNamesDisplay\n'
                                       '大人: $adults 位\n'
                                       '小孩: $children 位\n'
                                       '總票數: $totalTickets 張\n'
@@ -371,6 +409,7 @@ class _TicketPageState extends State<TicketPage> {
                                       '大人票: NT\$ ${adults * adultPrice}\n'
                                       '小孩票: 免費\n'
                                       '總計: NT\$ $totalPrice\n\n'
+                                      '訂單郵件已自動發送至 howard.mei@onelab.com\n'
                                       '感謝您的購買！',
                                     ),
                                     actions: [
