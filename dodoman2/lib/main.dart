@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -45,38 +46,43 @@ class _TicketPageState extends State<TicketPage> {
     final totalTickets = adults + children;
     final dateString =
         '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}';
-    
-    final passportNamesText = passportNames.asMap().entries
+
+    final passportNamesText = passportNames
+        .asMap()
+        .entries
         .map((entry) => '大人${entry.key + 1}: ${entry.value}')
         .join('\n');
 
-    final subject = Uri.encodeComponent('DoDoMan天鵝堡門票訂單 - ${passportNames.first}');
-    final body = Uri.encodeComponent(
-      '天鵝堡門票訂單資訊\n'
-      '====================\n\n'
-      '護照姓名:\n$passportNamesText\n'
-      '大人數量: $adults 位\n'
-      '小孩數量: $children 位\n'
-      '總票數: $totalTickets 張\n'
-      '參觀日期: $dateString\n'
-      '參觀時段: $timeSlot\n\n'
-      '票價明細:\n'
-      '大人票 ($adults 位): NT\$ ${adults * adultPrice}\n'
-      '小孩票 ($children 位): 免費\n'
-      '總計: NT\$ $totalPrice\n\n'
-      '訂單時間: ${DateTime.now().toString().substring(0, 19)}\n\n',
-    );
+    final title = 'DoDoMan天鵝堡門票訂單 - ${passportNames.first}';
+    final message =
+        '天鵝堡門票訂單資訊\n'
+        '====================\n\n'
+        '護照姓名:\n$passportNamesText\n'
+        '大人數量: $adults 位\n'
+        '小孩數量: $children 位\n'
+        '總票數: $totalTickets 張\n'
+        '參觀日期: $dateString\n'
+        '參觀時段: $timeSlot\n\n'
+        '票價明細:\n'
+        '大人票 ($adults 位): NT\$ ${adults * adultPrice}\n'
+        '小孩票 ($children 位): 免費\n'
+        '總計: NT\$ $totalPrice\n\n'
+        '訂單時間: ${DateTime.now().toString().substring(0, 19)}\n\n';
 
-    final emailUri = Uri(
-      scheme: 'mailto',
-      path: 'howard.mei@onelab.com',
-      query: 'subject=$subject&body=$body',
-    );
+    try {
+      final response = await http.post(
+        Uri.parse(
+          'https://howardmei.app.n8n.cloud/webhook-test/send-order-mail',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'title': title, 'message': message}),
+      );
 
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri);
-    } else {
-      throw 'Could not launch email';
+      if (response.statusCode != 200) {
+        throw 'HTTP ${response.statusCode}: ${response.body}';
+      }
+    } catch (e) {
+      throw 'API 請求失敗: $e';
     }
   }
 
@@ -227,10 +233,15 @@ class _TicketPageState extends State<TicketPage> {
                                 // 調整護照姓名列表長度
                                 if (newAdults > passportNames.length) {
                                   passportNames.addAll(
-                                    List.generate(newAdults - passportNames.length, (index) => ''),
+                                    List.generate(
+                                      newAdults - passportNames.length,
+                                      (index) => '',
+                                    ),
                                   );
                                 } else if (newAdults < passportNames.length) {
-                                  passportNames = passportNames.take(newAdults).toList();
+                                  passportNames = passportNames
+                                      .take(newAdults)
+                                      .toList();
                                 }
                               });
                             },
@@ -279,8 +290,9 @@ class _TicketPageState extends State<TicketPage> {
                               prefixIcon: const Icon(Icons.person),
                               hintText: '請輸入與護照相同的姓名',
                             ),
-                            validator: (value) =>
-                                value == null || value.isEmpty ? '請輸入護照姓名' : null,
+                            validator: (value) => value == null || value.isEmpty
+                                ? '請輸入護照姓名'
+                                : null,
                             onSaved: (value) {
                               if (index < passportNames.length) {
                                 passportNames[index] = value ?? '';
@@ -293,7 +305,9 @@ class _TicketPageState extends State<TicketPage> {
                                 }
                               });
                             },
-                            initialValue: index < passportNames.length ? passportNames[index] : '',
+                            initialValue: index < passportNames.length
+                                ? passportNames[index]
+                                : '',
                           ),
                           if (index < adults - 1) const SizedBox(height: 16),
                         ],
@@ -390,8 +404,13 @@ class _TicketPageState extends State<TicketPage> {
 
                               // 發送成功後顯示確認對話框
                               final totalTickets = adults + children;
-                              final passportNamesDisplay = passportNames.asMap().entries
-                                  .map((entry) => '大人${entry.key + 1}: ${entry.value}')
+                              final passportNamesDisplay = passportNames
+                                  .asMap()
+                                  .entries
+                                  .map(
+                                    (entry) =>
+                                        '大人${entry.key + 1}: ${entry.value}',
+                                  )
                                   .join('\n');
                               if (context.mounted) {
                                 showDialog(
@@ -409,7 +428,7 @@ class _TicketPageState extends State<TicketPage> {
                                       '大人票: NT\$ ${adults * adultPrice}\n'
                                       '小孩票: 免費\n'
                                       '總計: NT\$ $totalPrice\n\n'
-                                      '訂單郵件已自動發送至 howard.mei@onelab.com\n'
+                                      '訂單已成功送出！\n'
                                       '感謝您的購買！',
                                     ),
                                     actions: [
