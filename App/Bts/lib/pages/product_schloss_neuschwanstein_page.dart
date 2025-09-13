@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:g2railsample/pages/order_page.dart';
+import '../repos/models/product.dart';
 
 class ProductPage extends StatelessWidget {
-  final Map<String, dynamic> product;
+  final Product product;
 
   const ProductPage({
     super.key,
@@ -13,7 +14,7 @@ class ProductPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(product['title']),
+        title: Text(product.name),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
@@ -47,7 +48,7 @@ class ProductPage extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          product['title'],
+                          product.name,
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -55,7 +56,7 @@ class ProductPage extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '\$${product['price'].toStringAsFixed(2)}',
+                        '${product.price} ${product.currency}',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -73,7 +74,7 @@ class ProductPage extends StatelessWidget {
                       const Icon(Icons.access_time, size: 18, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(
-                        product['duration'],
+                        'Full Day Tour',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.grey,
@@ -94,7 +95,7 @@ class ProductPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    product['description'],
+                    product.propaganda,
                     style: const TextStyle(fontSize: 16),
                   ),
 
@@ -109,7 +110,7 @@ class ProductPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...((product['includes'] as List<String>?) ?? [])
+                  ...['Professional guided tour', 'Transportation included', 'Entry to castle grounds', 'Photo opportunities']
                       .map((item) => Padding(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Row(
@@ -139,8 +140,8 @@ class ProductPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           _buildInfoRow('Starting Point', 'Frankfurt Central Station'),
-                          _buildInfoRow('Destination', product['title']),
-                          _buildInfoRow('Duration', product['duration']),
+                          _buildInfoRow('Destination', product.name),
+                          _buildInfoRow('Duration', 'Full Day Tour'),
                           _buildInfoRow('Group Size', 'Up to 25 people'),
                           _buildInfoRow('Language', 'English, German'),
                         ],
