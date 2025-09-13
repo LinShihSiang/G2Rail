@@ -16,10 +16,7 @@ class OrderService {
       secret: "<API-Secret>", // TODO: Move to environment variables
     );
 
-    _emailRepo = EmailRepo(
-      apiUrl: "https://api.emailservice.com", // TODO: Configure actual email service
-      apiKey: "<EMAIL-API-Key>", // TODO: Move to environment variables
-    );
+    _emailRepo = EmailRepo();
   }
 
   Client _createHttpClient() {

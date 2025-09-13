@@ -511,10 +511,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
       });
 
       try {
-        final emailService = EmailService(
-          apiUrl: 'https://api.emailservice.com', // Replace with actual API URL
-          apiKey: 'your-api-key', // Replace with actual API key
-        );
+        final emailService = EmailService();
 
         final bookingDetails = _createBookingDetails(orderDraft, orderId);
         final paymentInfo = _createPaymentInfo(orderDraft);

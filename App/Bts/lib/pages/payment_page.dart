@@ -23,10 +23,7 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   void initState() {
     super.initState();
-    _emailService = EmailService(
-      apiUrl: "https://api.emailservice.com", // TODO: Configure actual email service
-      apiKey: "<EMAIL-API-Key>", // TODO: Move to environment variables
-    );
+    _emailService = EmailService();
   }
 
   @override

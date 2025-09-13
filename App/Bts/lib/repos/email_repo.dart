@@ -1,14 +1,9 @@
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter_email_sender/flutter_email_sender.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class EmailRepo {
-  final String apiUrl;
-  final String apiKey;
-
-  EmailRepo({
-    required this.apiUrl,
-    required this.apiKey,
-  });
+  EmailRepo();
 
   Future<bool> sendConfirmationEmail({
     required String toEmail,
@@ -17,28 +12,42 @@ class EmailRepo {
     required String paymentDetails,
     String? subject,
   }) async {
-    // TODO: Implement email service integration (SendGrid, AWS SES, etc.)
-    // This is a placeholder implementation
+    // In debug/development mode, skip trying to send email and just log it
+    if (kDebugMode) {
+      debugPrint('📧 EMAIL SIMULATION (Development Mode)');
+      debugPrint('To: $toEmail');
+      debugPrint('Subject: ${subject ?? 'DoDoMan Travel Booking Confirmation'}');
+      debugPrint('Body:\n${_buildConfirmationEmailBody(customerName, orderDetails, paymentDetails)}');
+      debugPrint('✅ Email would be sent successfully in production');
+      return true;
+    }
+
     try {
-      final response = await http.post(
-        Uri.parse('$apiUrl/send-email'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'to': toEmail,
-          'subject': subject ?? 'G2Rail Travel Booking Confirmation',
-          'body': _buildConfirmationEmailBody(customerName, orderDetails, paymentDetails),
-        }),
+      final Email email = Email(
+        body: _buildConfirmationEmailBody(customerName, orderDetails, paymentDetails),
+        subject: subject ?? 'DoDoMan Travel Booking Confirmation',
+        recipients: [toEmail],
+        isHTML: false,
       );
 
-      return response.statusCode == 200;
+      await FlutterEmailSender.send(email);
+      debugPrint('✅ Email sent successfully to $toEmail');
+      return true;
+    } on PlatformException catch (e) {
+      if (e.code == 'not_available') {
+        debugPrint('❌ Email sending failed: No email clients found on device');
+        debugPrint('💡 In production, ensure users have an email app installed');
+        return false; // In production, this should return false to indicate failure
+      } else {
+        debugPrint('❌ Email sending failed with platform exception: ${e.message}');
+        return false;
+      }
     } catch (e) {
-      print('Email sending failed: $e');
+      debugPrint('❌ Email sending failed with unexpected error: $e');
       return false;
     }
   }
+
 
   String _buildConfirmationEmailBody(
     String customerName,
@@ -48,7 +57,7 @@ class EmailRepo {
     return '''
     Dear $customerName,
 
-    Thank you for booking with G2Rail Travel!
+    Thank you for booking with DoDoMan Travel!
 
     Your booking has been confirmed. Here are the details:
 
@@ -60,7 +69,7 @@ class EmailRepo {
     We look forward to serving you on your journey.
 
     Best regards,
-    G2Rail Travel Team
+    DoDoMan Travel Team
     ''';
   }
 }

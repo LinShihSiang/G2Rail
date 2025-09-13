@@ -3,10 +3,7 @@ import 'package:g2railsample/repos/email_repo.dart';
 class EmailService {
   final EmailRepo _emailRepo;
 
-  EmailService({
-    required String apiUrl,
-    required String apiKey,
-  }) : _emailRepo = EmailRepo(apiUrl: apiUrl, apiKey: apiKey);
+  EmailService() : _emailRepo = EmailRepo();
 
   Future<bool> sendBookingConfirmation({
     required String customerEmail,
