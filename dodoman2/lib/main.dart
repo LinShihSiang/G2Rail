@@ -13,9 +13,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DoDoMan天鵝堡門票',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const TicketPage(),
     );
   }
@@ -35,18 +33,19 @@ class _TicketPageState extends State<TicketPage> {
   int children = 0;
   DateTime? selectedDate;
   String timeSlot = '上午'; // 上午 或 下午
-  
+
   // 票價常量
   static const int adultPrice = 690;
   static const int childPrice = 0;
-  
+
   // 計算總價
   int get totalPrice => adults * adultPrice + children * childPrice;
 
   Future<void> _sendOrderEmail() async {
     final totalTickets = adults + children;
-    final dateString = '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}';
-    
+    final dateString =
+        '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}';
+
     final subject = Uri.encodeComponent('DoDoMan天鵝堡門票訂單 - $passportName');
     final body = Uri.encodeComponent(
       '天鵝堡門票訂單資訊\n'
@@ -61,15 +60,15 @@ class _TicketPageState extends State<TicketPage> {
       '大人票 ($adults 位): NT\$ ${adults * adultPrice}\n'
       '小孩票 ($children 位): 免費\n'
       '總計: NT\$ $totalPrice\n\n'
-      '訂單時間: ${DateTime.now().toString().substring(0, 19)}\n\n'
+      '訂單時間: ${DateTime.now().toString().substring(0, 19)}\n\n',
     );
-    
+
     final emailUri = Uri(
       scheme: 'mailto',
       path: 'baluce@gmail.com',
       query: 'subject=$subject&body=$body',
     );
-    
+
     if (await canLaunchUrl(emailUri)) {
       await launchUrl(emailUri);
     } else {
@@ -110,10 +109,7 @@ class _TicketPageState extends State<TicketPage> {
                   bottomLeft: Radius.circular(20),
                   bottomRight: Radius.circular(20),
                 ),
-                child: Image.asset(
-                  'image/castle.jpg',
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset('image/castle.jpg', fit: BoxFit.cover),
               ),
             ),
           ),
@@ -121,7 +117,7 @@ class _TicketPageState extends State<TicketPage> {
           Expanded(
             flex: 2,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.all(24.0),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -143,9 +139,11 @@ class _TicketPageState extends State<TicketPage> {
                         prefixIcon: Icon(Icons.person),
                         hintText: '請輸入與護照相同的姓名',
                       ),
-                      validator: (value) => value == null || value.isEmpty ? '請輸入護照姓名' : null,
+                      validator: (value) =>
+                          value == null || value.isEmpty ? '請輸入護照姓名' : null,
                       onSaved: (value) => passportName = value ?? '',
                     ),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -158,12 +156,14 @@ class _TicketPageState extends State<TicketPage> {
                             keyboardType: TextInputType.number,
                             initialValue: '1',
                             validator: (value) {
-                              if (value == null || value.isEmpty) return '請輸入大人數量';
+                              if (value == null || value.isEmpty)
+                                return '請輸入大人數量';
                               final n = int.tryParse(value);
                               if (n == null || n < 1) return '至少需要1位大人';
                               return null;
                             },
-                            onSaved: (value) => adults = int.tryParse(value ?? '1') ?? 1,
+                            onSaved: (value) =>
+                                adults = int.tryParse(value ?? '1') ?? 1,
                             onChanged: (value) {
                               setState(() {
                                 int newAdults = int.tryParse(value) ?? 1;
@@ -173,7 +173,7 @@ class _TicketPageState extends State<TicketPage> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 20),
                         Expanded(
                           child: TextFormField(
                             decoration: const InputDecoration(
@@ -184,16 +184,19 @@ class _TicketPageState extends State<TicketPage> {
                             keyboardType: TextInputType.number,
                             initialValue: '0',
                             validator: (value) {
-                              if (value == null || value.isEmpty) return '請輸入小孩數量';
+                              if (value == null || value.isEmpty)
+                                return '請輸入小孩數量';
                               final n = int.tryParse(value);
                               if (n == null || n < 0) return '小孩數量不能小於0';
                               return null;
                             },
-                            onSaved: (value) => children = int.tryParse(value ?? '0') ?? 0,
+                            onSaved: (value) =>
+                                children = int.tryParse(value ?? '0') ?? 0,
                             onChanged: (value) {
                               setState(() {
                                 int newChildren = int.tryParse(value) ?? 0;
-                                if (newChildren < 0) newChildren = 0; // 確保小孩數量不能小於0
+                                if (newChildren < 0)
+                                  newChildren = 0; // 確保小孩數量不能小於0
                                 children = newChildren;
                               });
                             },
@@ -201,13 +204,16 @@ class _TicketPageState extends State<TicketPage> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
                     InkWell(
                       onTap: () async {
                         final DateTime? picked = await showDatePicker(
                           context: context,
                           initialDate: DateTime.now(),
                           firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                         );
                         if (picked != null) {
                           setState(() {
@@ -226,7 +232,9 @@ class _TicketPageState extends State<TicketPage> {
                               ? '請選擇參觀日期'
                               : '${selectedDate!.year}/${selectedDate!.month}/${selectedDate!.day}',
                           style: TextStyle(
-                            color: selectedDate == null ? Colors.grey : Colors.black,
+                            color: selectedDate == null
+                                ? Colors.grey
+                                : Colors.black,
                           ),
                         ),
                       ),
@@ -240,8 +248,14 @@ class _TicketPageState extends State<TicketPage> {
                       ),
                       initialValue: timeSlot,
                       items: const [
-                        DropdownMenuItem(value: '上午', child: Text('上午 (09:00-12:00)')),
-                        DropdownMenuItem(value: '下午', child: Text('下午 (13:00-17:00)')),
+                        DropdownMenuItem(
+                          value: '上午',
+                          child: Text('上午 (09:00-12:00)'),
+                        ),
+                        DropdownMenuItem(
+                          value: '下午',
+                          child: Text('下午 (13:00-17:00)'),
+                        ),
                       ],
                       onChanged: (value) {
                         setState(() {
@@ -257,7 +271,9 @@ class _TicketPageState extends State<TicketPage> {
                       decoration: BoxDecoration(
                         color: Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +291,9 @@ class _TicketPageState extends State<TicketPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('大人票 ($adults 位)'),
-                              Text('NT\$ ${(adults * adultPrice).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}'),
+                              Text(
+                                'NT\$ ${(adults * adultPrice).toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}',
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -310,7 +328,7 @@ class _TicketPageState extends State<TicketPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     Center(
                       child: ElevatedButton(
                         onPressed: () async {
@@ -322,7 +340,7 @@ class _TicketPageState extends State<TicketPage> {
                               return;
                             }
                             _formKey.currentState?.save();
-                            
+
                             // 顯示處理中的提示
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -330,11 +348,11 @@ class _TicketPageState extends State<TicketPage> {
                                 duration: Duration(seconds: 2),
                               ),
                             );
-                            
+
                             try {
                               // 自動發送郵件
                               await _sendOrderEmail();
-                              
+
                               // 發送成功後顯示確認對話框
                               final totalTickets = adults + children;
                               if (context.mounted) {
@@ -358,7 +376,8 @@ class _TicketPageState extends State<TicketPage> {
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.of(context).pop(),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
                                         child: const Text('確定'),
                                       ),
                                     ],
@@ -380,7 +399,10 @@ class _TicketPageState extends State<TicketPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 15,
+                          ),
                           textStyle: const TextStyle(fontSize: 18),
                         ),
                         child: const Text('送出訂單'),
