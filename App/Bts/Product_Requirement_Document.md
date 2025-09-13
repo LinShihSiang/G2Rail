@@ -49,10 +49,19 @@ Main features include:\
 
 ## 3. Feature Requirements
 
-### Step 1: Order Page
-### Step 2: Payment Flow (Payment Gateway Integration)
-### Step 3: Send Email after Payment Completion
-### Step 4: Display Payment Completion & Order Confirmation Page
+### Home Page
+
+-   Step 1: List all available travel products\
+-   Step 2: Navigate to product detail page
+
+### Product Page - Schloss Neuschwanstein
+
+-   Step 1: Order page (display selected product, input quantity, date,
+    passenger info)\
+-   Step 2: Payment flow (integrate with third-party payment APIs such
+    as Stripe/PayPal)\
+-   Step 3: After successful payment, send confirmation email\
+-   Step 4: Display order confirmation page with payment details
 
 ------------------------------------------------------------------------
 

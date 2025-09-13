@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 
-class StripeService {
+class PaymentRepo {
   static const String _publishableKey = 'pk_test_51S6p0vC0uGyy5VnqjT483pBdTWNFU5qb4CQMprabDQIP9mzI3S4YCbb0iwcFvLRST7K6vCW5HG57nyFLRKSR1cpd00FSpzqjKj';
   static const String _secretKey = 'sk_test_51S6p0vC0uGyy5VnqyxhsiYoW966TsOMx234DPITMpUDnl4ZBMlBgz9pMx4S6F6wmXHXN7RybSlWzwqKTiyBWhVSC00MkFFroQH';
   static const String _baseUrl = 'https://api.stripe.com/v1';
@@ -63,17 +63,18 @@ class StripeService {
     }
   }
 
-  static Future<bool> payForTravelTicket({
-    required double ticketPrice,
-    required String travelDescription,
+  static Future<bool> processPaymentWithSheet({
+    required double amount,
+    required String currency,
+    required String description,
   }) async {
     try {
-      final amountInCents = (ticketPrice * 100).round().toString();
+      final amountInCents = (amount * 100).round().toString();
 
       final paymentIntent = await createPaymentIntent(
         amount: amountInCents,
-        currency: 'usd',
-        description: travelDescription,
+        currency: currency,
+        description: description,
       );
 
       final clientSecret = paymentIntent['client_secret'];

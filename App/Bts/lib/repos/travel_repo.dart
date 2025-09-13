@@ -47,13 +47,13 @@ class SearchCriteria {
   }
 }
 
-class GrailApiClient {
-  final baseUrl;
-  final apiKey; //TODO ASK PM to get apiKey and secret
-  final secret;
+class TravelRepo {
+  final String baseUrl;
+  final String apiKey;
+  final String secret;
   final http.Client httpClient;
 
-  GrailApiClient({
+  TravelRepo({
     required this.httpClient,
     required this.baseUrl,
     required this.apiKey,
@@ -120,7 +120,6 @@ class GrailApiClient {
     }
 
     final solutionsJson = jsonDecode(solutionResponse.body);
-    print(solutionResponse.body);
     return solutionsJson;
   }
 
