@@ -54,7 +54,7 @@ class _TicketPageState extends State<TicketPage> {
         .map((entry) => '大人${entry.key + 1}: ${entry.value}')
         .join('\n');
 
-    final title = 'DoDoMan天鵝堡門票訂單 - ${passportNames.first}';
+    final title = 'DoDoMan天鵝堡門票訂單 - ${passportNames.first}($email)';
     final message =
         '天鵝堡門票訂單資訊\n'
         '====================\n\n'
@@ -73,13 +73,12 @@ class _TicketPageState extends State<TicketPage> {
     try {
       final response = await http.post(
         Uri.parse(
-          'https://howardmei.app.n8n.cloud/webhook-test/send-order-mail',
+          'https://howardmei.app.n8n.cloud/webhook/send-order-mail',
         ),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'title': title, 
-          'message': message,
-          'email': email,
+          'subject': title, 
+          'message': message
         }),
       );
 
