@@ -5,6 +5,9 @@ import '../view_models/order_step1_view_model.dart';
 import '../repos/models/product.dart';
 import '../repos/order_draft_repo.dart';
 import '../models/order_step1_state.dart';
+import '../services/payment_service.dart';
+import '../services/email_service.dart';
+import '../models/order_draft.dart';
 
 class OrderPage extends StatelessWidget {
   final Product product;
@@ -36,6 +39,9 @@ class _OrderPageContent extends StatefulWidget {
 class _OrderPageContentState extends State<_OrderPageContent> {
   final _scrollController = ScrollController();
   bool _isSubmitting = false;
+  bool _isProcessingPayment = false;
+  bool _isSendingEmail = false;
+  String? _paymentError;
 
   @override
   void dispose() {
@@ -77,7 +83,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.3),
+                  color: Colors.grey.withValues(alpha: 0.3),
                   spreadRadius: 1,
                   blurRadius: 5,
                   offset: const Offset(0, -2),
@@ -107,7 +113,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
                         ),
                       )
                     : Text(
-                        'Proceed to Payment (${viewModel.totalAmount} ${viewModel.currency})',
+                        _getButtonText(viewModel),
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
               ),
@@ -427,19 +433,220 @@ class _OrderPageContentState extends State<_OrderPageContent> {
     });
   }
 
+  String _getButtonText(OrderStep1ViewModelImpl viewModel) {
+    if (_isProcessingPayment) {
+      return 'Processing Payment...';
+    } else if (_isSendingEmail) {
+      return 'Sending Confirmation...';
+    } else {
+      return 'Proceed to Payment (${viewModel.totalAmount} ${viewModel.currency})';
+    }
+  }
+
+  String _generateOrderId(String productId) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    return 'ORDER_${productId}_$timestamp';
+  }
+
   Future<void> _submitForm(BuildContext context, OrderStep1ViewModelImpl viewModel) async {
     setState(() {
       _isSubmitting = true;
+      _paymentError = null;
     });
 
     try {
-      await viewModel.submitAndGoNext(context);
+      // Validate form first
+      if (!viewModel.isFormValid) {
+        return;
+      }
+
+      // Create OrderDraft
+      final orderDraft = OrderDraft.fromState(
+        product: viewModel.product,
+        state: viewModel.state,
+      );
+
+      // Generate Order ID
+      final orderId = _generateOrderId(viewModel.product.id);
+
+      // Step 1: Process Payment
+      setState(() {
+        _isProcessingPayment = true;
+      });
+
+      bool paymentSuccess;
+      try {
+        paymentSuccess = await PaymentService.processTicketPayment(
+          ticketPrice: viewModel.totalAmount.toDouble(),
+          travelDescription: viewModel.product.name,
+        );
+      } catch (e) {
+        setState(() {
+          _paymentError = 'Payment failed: ${e.toString()}';
+          _isProcessingPayment = false;
+        });
+        if (mounted) {
+          _showErrorDialog(context, 'Payment Error', _paymentError!);
+        }
+        return;
+      }
+
+      setState(() {
+        _isProcessingPayment = false;
+      });
+
+      if (!paymentSuccess) {
+        setState(() {
+          _paymentError = 'Payment was not completed successfully';
+        });
+        if (mounted) {
+          _showErrorDialog(context, 'Payment Failed', _paymentError!);
+        }
+        return;
+      }
+
+      // Step 2: Send Email Confirmation
+      setState(() {
+        _isSendingEmail = true;
+      });
+
+      try {
+        final emailService = EmailService(
+          apiUrl: 'https://api.emailservice.com', // Replace with actual API URL
+          apiKey: 'your-api-key', // Replace with actual API key
+        );
+
+        final bookingDetails = _createBookingDetails(orderDraft, orderId);
+        final paymentInfo = _createPaymentInfo(orderDraft);
+
+        final emailSuccess = await emailService.sendBookingConfirmation(
+          customerEmail: orderDraft.email,
+          customerName: orderDraft.mainFullNameEn,
+          bookingDetails: bookingDetails,
+          paymentInfo: paymentInfo,
+        );
+
+        setState(() {
+          _isSendingEmail = false;
+        });
+
+        if (!emailSuccess) {
+          // Continue to confirmation page but show warning
+          if (mounted) {
+            _showEmailWarning(context);
+          }
+        }
+      } catch (e) {
+        setState(() {
+          _isSendingEmail = false;
+        });
+        // Continue to confirmation page but show warning
+        if (mounted) {
+          _showEmailWarning(context);
+        }
+      }
+
+      // Save order draft with order ID
+      final orderDraftRepo = InMemoryOrderDraftRepo();
+      await orderDraftRepo.save(orderDraft);
+
+      // Navigate to confirmation page
+      if (context.mounted) {
+        _showSuccessAndNavigate(context, orderId);
+      }
+
+    } catch (e) {
+      setState(() {
+        _paymentError = 'An unexpected error occurred: ${e.toString()}';
+      });
+      if (mounted) {
+        _showErrorDialog(context, 'Error', _paymentError!);
+      }
     } finally {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
+          _isProcessingPayment = false;
+          _isSendingEmail = false;
         });
       }
     }
+  }
+
+  Map<String, dynamic> _createBookingDetails(OrderDraft orderDraft, String orderId) {
+    return {
+      'orderId': orderId,
+      'productName': orderDraft.productName,
+      'mainBookerName': orderDraft.mainFullNameEn,
+      'email': orderDraft.email,
+      'dateTime': DateFormat('EEEE, MMMM d, y \'at\' HH:mm').format(orderDraft.dateTime),
+      'companions': orderDraft.companions.map((companion) => {
+        'name': companion.fullNameEn,
+        'isChild': companion.isChild,
+        'ageIndicator': companion.isChild ? ' (Under 18)' : '',
+      }).toList(),
+      'adultCount': orderDraft.adultCount,
+      'childCount': orderDraft.childCount,
+      'unitPrice': orderDraft.unitPrice,
+      'currency': orderDraft.currency,
+      'totalAmount': orderDraft.totalAmount,
+    };
+  }
+
+  Map<String, dynamic> _createPaymentInfo(OrderDraft orderDraft) {
+    return {
+      'amount': orderDraft.totalAmount,
+      'currency': orderDraft.currency,
+      'method': 'Credit Card',
+      'transactionId': 'TXN_${DateTime.now().millisecondsSinceEpoch}',
+    };
+  }
+
+  void _showErrorDialog(BuildContext context, String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEmailWarning(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Payment successful! However, confirmation email could not be sent.'),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showSuccessAndNavigate(BuildContext context, String orderId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Payment successful! Confirmation email sent.'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // Navigate to confirmation page after a brief delay
+    Future.delayed(const Duration(seconds: 1), () {
+      if (context.mounted) {
+        Navigator.of(context).pushNamed(
+          '/confirmation',
+          arguments: {'orderId': orderId},
+        );
+      }
+    });
   }
 }

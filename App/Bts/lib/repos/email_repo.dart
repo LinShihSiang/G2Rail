@@ -15,6 +15,7 @@ class EmailRepo {
     required String customerName,
     required String orderDetails,
     required String paymentDetails,
+    String? subject,
   }) async {
     // TODO: Implement email service integration (SendGrid, AWS SES, etc.)
     // This is a placeholder implementation
@@ -27,7 +28,7 @@ class EmailRepo {
         },
         body: json.encode({
           'to': toEmail,
-          'subject': 'G2Rail Travel Booking Confirmation',
+          'subject': subject ?? 'G2Rail Travel Booking Confirmation',
           'body': _buildConfirmationEmailBody(customerName, orderDetails, paymentDetails),
         }),
       );
