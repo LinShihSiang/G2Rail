@@ -4,8 +4,8 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 
 class StripeService {
-  static const String _publishableKey = 'pk_test_your_publishable_key_here';
-  static const String _secretKey = 'sk_test_your_secret_key_here';
+  static const String _publishableKey = 'pk_test_51S6p0vC0uGyy5VnqjT483pBdTWNFU5qb4CQMprabDQIP9mzI3S4YCbb0iwcFvLRST7K6vCW5HG57nyFLRKSR1cpd00FSpzqjKj';
+  static const String _secretKey = 'sk_test_51S6p0vC0uGyy5VnqyxhsiYoW966TsOMx234DPITMpUDnl4ZBMlBgz9pMx4S6F6wmXHXN7RybSlWzwqKTiyBWhVSC00MkFFroQH';
   static const String _baseUrl = 'https://api.stripe.com/v1';
 
   static void initialize() {
