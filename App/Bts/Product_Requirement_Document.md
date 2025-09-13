@@ -32,7 +32,8 @@ Main features include:\
     │   │   ├── travel_repo.dart
     │   │   ├── payment_repo.dart
     │   │   ├── email_repo.dart
-    │   │   └── train_repo.dart
+    │   ├── models/       # Data Object
+    │   │   ├── product_model.dart
     │   └── main.dart    # App entry point
 
 -   **pages**:
