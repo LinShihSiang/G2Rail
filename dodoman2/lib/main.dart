@@ -65,7 +65,7 @@ class _TicketPageState extends State<TicketPage> {
 
     final emailUri = Uri(
       scheme: 'mailto',
-      path: 'baluce@gmail.com',
+      path: 'howard.mei@onelab.com',
       query: 'subject=$subject&body=$body',
     );
 
@@ -371,7 +371,6 @@ class _TicketPageState extends State<TicketPage> {
                                       '大人票: NT\$ ${adults * adultPrice}\n'
                                       '小孩票: 免費\n'
                                       '總計: NT\$ $totalPrice\n\n'
-                                      '訂單郵件已自動發送至 baluce@gmail.com\n'
                                       '感謝您的購買！',
                                     ),
                                     actions: [
