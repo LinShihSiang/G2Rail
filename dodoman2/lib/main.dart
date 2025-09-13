@@ -34,6 +34,7 @@ class _TicketPageState extends State<TicketPage> {
   int children = 0;
   DateTime? selectedDate;
   String timeSlot = '上午'; // 上午 或 下午
+  String email = '';
 
   // 票價常量
   static const int adultPrice = 690;
@@ -75,7 +76,11 @@ class _TicketPageState extends State<TicketPage> {
           'https://howardmei.app.n8n.cloud/webhook-test/send-order-mail',
         ),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'title': title, 'message': message}),
+        body: json.encode({
+          'title': title, 
+          'message': message,
+          'email': email,
+        }),
       );
 
       if (response.statusCode != 200) {
@@ -202,6 +207,27 @@ class _TicketPageState extends State<TicketPage> {
                         });
                       },
                       validator: (value) => value == null ? '請選擇參觀時段' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Email輸入框
+                    TextFormField(
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email),
+                        hintText: '請輸入您的電子郵件地址',
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return '請輸入Email地址';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          return '請輸入有效的Email地址';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) => email = value ?? '',
                     ),
                     const SizedBox(height: 16),
                     // 大人小孩數量
