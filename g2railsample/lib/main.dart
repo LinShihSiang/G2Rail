@@ -1,13 +1,15 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:g2railsample/g2rail_api_client.dart';
+import 'package:g2railsample/stripe_service.dart';
 import 'package:http/http.dart';
 import 'package:http/io_client.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
 
 void main() {
+  StripeService.initialize();
   runApp(const MyApp());
 }
 
@@ -18,11 +20,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'G2Rail API Sample',
+      title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'G2Rail API Sample'),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
@@ -37,57 +39,82 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _apiResponse = 'No API response yet';
+  bool _isPaymentProcessing = false;
+  final double _ticketPrice = 89.99;
+
   Client baseClient() {
-    if (kIsWeb) {
-      // For web platforms, use the default HTTP client
-      return Client();
-    } else {
-      // For mobile/desktop platforms, use IOClient with certificate bypass
-      HttpClient httpClient = HttpClient();
-      httpClient.badCertificateCallback =
-          (X509Certificate cert, String host, int port) {
-            return true;
-          };
-      return IOClient(httpClient);
-    }
+    HttpClient httpClient = HttpClient();
+    httpClient.badCertificateCallback =
+        (X509Certificate cert, String host, int port) {
+          return true;
+        };
+    Client c = IOClient(httpClient);
+    return c;
   }
 
   void _actAPI() async {
+    String baseUrl = "http://alpha-api.g2rail.com";
+    var gac = GrailApiClient(
+      httpClient: baseClient(),
+      baseUrl: baseUrl,
+      apiKey: "<API-Key>",
+      secret: "<API-Secret>",
+    );
+    var rtn = await gac.getSolutions(
+      "Frankfurt",
+      "Berlin",
+      DateFormat(
+        "yyyy-MM-dd",
+      ).format(DateTime.now().add(const Duration(days: 7))),
+      "08:00",
+      1,
+      0,
+      0,
+      0,
+      0,
+    );
+  }
+
+  void _payForTicket() async {
+    if (_isPaymentProcessing) return;
+
     setState(() {
-      _apiResponse = 'Loading...';
+      _isPaymentProcessing = true;
     });
-    
+
     try {
-      String baseUrl = "http://alpha-api.g2rail.com";
-      var gac = GrailApiClient(
-        httpClient: baseClient(),
-        baseUrl: baseUrl,
-        apiKey: "fa656e6b99d64f309d72d6a8e7284953",
-        secret: "9a52b1f7-7c96-4305-8569-1016a55048bc",
+      final success = await StripeService.payForTravelTicket(
+        ticketPrice: _ticketPrice,
+        travelDescription: 'Travel ticket from Frankfurt to Berlin',
       );
-      var rtn = await gac.getSolutions(
-        "CT_LV7D4WNOK",
-        "CT_60Y990YWR",
-        DateFormat(
-          "yyyy-MM-dd",
-        ).format(DateTime.now().toUtc().add(const Duration(days: 0))),
-        "08:00",
-        1,
-        0,
-        0,
-        0,
-        0,
-      );
-      
-      setState(() {
-        _apiResponse = rtn.toString();
-      });
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment successful! Your ticket is confirmed.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment failed. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
-      setState(() {
-        _apiResponse = 'Error: ${e.toString()}';
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
+
+    setState(() {
+      _isPaymentProcessing = false;
+    });
   }
 
   @override
@@ -102,41 +129,49 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             const Text(
-              'G2Rail API Sample',
+              'G2Rail Travel Booking',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 20),
-            const Text('Test G2Rail API functionality'),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _actAPI,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                textStyle: const TextStyle(fontSize: 16),
-              ),
-              child: const Text('Test G2Rail API'),
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              'API Response:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: SingleChildScrollView(
+            Card(
+              margin: const EdgeInsets.all(16),
+              child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey[100],
-                  ),
-                  child: Text(
-                    _apiResponse,
-                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-                  ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Frankfurt → Berlin',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 7))),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const Text('08:00 Departure', style: TextStyle(fontSize: 16)),
+                    const SizedBox(height: 16),
+                    Text(
+                      '\$${_ticketPrice.toStringAsFixed(2)} USD',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _isPaymentProcessing ? null : _payForTicket,
+                      icon: _isPaymentProcessing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2)
+                            )
+                          : const Icon(Icons.credit_card),
+                      label: Text(_isPaymentProcessing ? 'Processing...' : 'Pay with Credit Card'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
