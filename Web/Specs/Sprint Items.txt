@@ -11,3 +11,8 @@ Sprint 3: Journey Bundle
 	- Start selling the Neuschwanstein Castle Pass
 	- Combine more fixed-price products and routes
 	- Bundle train tickets within products
+	
+Sprint 3-2: Credit Card Mass Disputes
+	- How to define the simplest risk control mechanism
+	- Discussion on preventive mechanisms
+	- Our preventive mechanisms and technical reserves

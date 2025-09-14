@@ -1,3 +1,23 @@
+// Shared Destination Data
+const DESTINATION_DATA = [
+    {
+        title: "新天鵝堡探索之旅",
+        location: "德國",
+        price: "€21 起",
+        image: "https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg",
+        intro: "探索德國最浪漫的童話城堡",
+        badge: "主打推薦"
+    },
+    {
+        title: "烏菲茲美術館藝術之旅",
+        location: "佛羅倫斯",
+        price: "€35.9 起",
+        image: "https://blog-static.kkday.com/zh-hk/blog/wp-content/uploads/shutterstock_673635160-644x444.jpg",
+        intro: "義大利文藝復興藝術寶庫",
+        badge: "藝術殿堂"
+    }
+];
+
 // App Detection and Download Logic
 class AppManager {
     constructor() {
@@ -6,7 +26,7 @@ class AppManager {
         this.isMobile = this.isIOS || this.isAndroid;
 
         // App Store URL
-        this.appURL = 'https://tinyurl.com/2czszj64';
+        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing';
 
         // App URL schemes for opening installed apps
         this.appScheme = 'dodoman://';
@@ -389,6 +409,43 @@ class UIEnhancements {
     }
 }
 
+// Gallery Manager for Popular Destinations
+class GalleryManager {
+    constructor() {
+        this.slides = [];
+        this.init();
+    }
+
+    init() {
+        this.loadDestinations();
+        this.renderGallery();
+    }
+
+    loadDestinations() {
+        // Use shared destination data
+        this.slides = DESTINATION_DATA;
+    }
+
+    renderGallery() {
+        const galleryGrid = document.getElementById('galleryGrid');
+        if (!galleryGrid) return;
+
+        galleryGrid.innerHTML = this.slides.map(slide => `
+            <div class="gallery-item large featured fullwidth">
+                <img src="${slide.image}" alt="${slide.title}" />
+                <div class="gallery-overlay">
+                    <div class="featured-badge">${slide.badge}</div>
+                    <h3>${slide.title}</h3>
+                    <p>${slide.intro}</p>
+                    <div class="price-tag">${slide.price}</div>
+                    <div class="location-tag">📍 ${slide.location}</div>
+                    <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="gallery-cta primary">立即預訂</a> -->
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
 // Destination Carousel Manager
 class DestinationCarousel {
     constructor() {
@@ -407,23 +464,8 @@ class DestinationCarousel {
     }
 
     loadDestinations() {
-        // Static featured destinations
-        this.slides = [
-            {
-                title: "新天鵝堡探索之旅",
-                location: "德國",
-                price: "€21 起",
-                image: "https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg",
-                intro: "探索德國最浪漫的童話城堡"
-            },
-            {
-                title: "烏菲茲美術館藝術之旅",
-                location: "佛羅倫斯",
-                price: "€35.9 起",
-                image: "https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-                intro: "義大利文藝復興藝術寶庫"
-            }
-        ];
+        // Use shared destination data
+        this.slides = DESTINATION_DATA;
 
         this.renderCarousel();
         this.renderDots();
@@ -593,6 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const analytics = new Analytics();
     const performanceOptimizer = new PerformanceOptimizer();
     const uiEnhancements = new UIEnhancements();
+    const galleryManager = new GalleryManager();
     const destinationCarousel = new DestinationCarousel();
 
     // Track page load
