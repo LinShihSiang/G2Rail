@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "儀表板";
+}
+
+<div class="row">
+    <div class="col-12">
+        <h1>DoDoMan 後台管理系統</h1>
+        <p class="lead">歡迎使用 DoDoMan 旅遊後台管理系統</p>
+
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">系統設定完成！</h4>
+            <p>基礎專案結構已建立完成。接下來請依序實作以下步驟：</p>
+            <hr>
+            <ul class="mb-0">
+                <li>Step 02: 資料庫模型和 Entity Framework 設定</li>
+                <li>Step 03: 業務邏輯層服務實作</li>
+                <li>Step 04: Controllers 和 API 端點</li>
+                <li>Step 05: UI 介面和前端實作</li>
+                <li>Step 06: N8N 工作流程整合</li>
+                <li>Step 07: 測試和部署</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>專案結構</h5>
+            </div>
+            <div class="card-body">
+                <p>以下目錄結構已建立：</p>
+                <ul>
+                    <li><strong>Controllers/</strong> - MVC Controllers</li>
+                    <li><strong>Models/</strong> - 資料模型
+                        <ul>
+                            <li>Entities/ - 實體模型</li>
+                            <li>ViewModels/ - 檢視模型</li>
+                            <li>DTOs/ - 資料傳輸物件</li>
+                        </ul>
+                    </li>
+                    <li><strong>Services/</strong> - 業務邏輯服務
+                        <ul>
+                            <li>Interfaces/ - 服務介面</li>
+                            <li>Implementations/ - 服務實作</li>
+                        </ul>
+                    </li>
+                    <li><strong>Data/</strong> - 資料存取層</li>
+                    <li><strong>Views/</strong> - Razor 檢視</li>
+                    <li><strong>Configuration/</strong> - 設定類別</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
