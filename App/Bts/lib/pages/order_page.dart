@@ -53,7 +53,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Book Your Trip - Step 1'),
+        title: const Text('Book Your Trip'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Consumer<OrderStep1ViewModelImpl>(

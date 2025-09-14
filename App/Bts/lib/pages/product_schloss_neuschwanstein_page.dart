@@ -29,7 +29,7 @@ class ProductPage extends StatelessWidget {
                 color: Colors.grey[300],
               ),
               child: product.imageUrl.isNotEmpty
-                  ? Image.network(
+                  ? Image.asset(
                       product.imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
