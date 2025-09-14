@@ -1,13 +1,15 @@
 # 06. N8N Integration Implementation
 
 ## Overview
-實作 DoDoMan 後台管理系統與 N8N 工作流程平台的整合，包括 Webhook 觸發、資料同步和自動化通知。
+實作 DoDoMan 後台管理系統與 N8N 工作流程平台的整合，專注於直接從 N8N API 獲取訂單資料的無資料庫架構。系統作為 N8N 資料的展示和管理介面。
 
-## Implementation Steps
+## Architecture Changes from Database Approach
 
-### Step 6.1: N8N Integration Service Implementation
-
-**Services/Implementations/N8NIntegrationService.cs**
+### Key Architectural Shifts
+1. **No Local Database Storage**: 完全移除本地資料庫，所有資料來自 N8N API
+2. **Read-Only System**: 系統變為純展示和報表介面，不進行資料修改
+3. **Real-time Data**: 每次查詢都直接從 N8N API 獲取最新資料
+4. **Simplified Integration**: 移除複雜的資料同步邏輯，專注於資料展示
 
 ### N8N Get Order API Integration
 
@@ -33,667 +35,101 @@ The N8N get order API (https://howardmei.app.n8n.cloud/webhook/get-order) return
 - `客戶名稱` (string): Customer full name
 - `支付方式` (string): Payment method (lowercase format)
 - `支付狀態` (string): Payment status
+
+## Implementation Steps
+
+### Step 6.1: N8N API Service (已在 Step 2.2 實作)
+
+N8N API service 已在 02-Database-Models.md 中定義：
+- `N8NApiService` 處理 HTTP 請求到 N8N API
+- `N8NOrderResponseDto` 定義 API 回應格式
+- 支援篩選和分頁的客戶端處理
+
+### Step 6.2: Cache Invalidation Service
+
+**Services/Implementations/N8NCacheInvalidationService.cs**
 ```csharp
-using Microsoft.Extensions.Options;
-using System.Text.Json;
-using System.Text;
-using System.Security.Cryptography;
 using DoDoManBackOffice.Services.Interfaces;
-using DoDoManBackOffice.Models.Entities;
-using DoDoManBackOffice.Configuration;
 
 namespace DoDoManBackOffice.Services.Implementations
 {
-    public class N8NIntegrationService : IN8NIntegrationService
+    public interface IN8NCacheInvalidationService
     {
-        private readonly HttpClient _httpClient;
-        private readonly N8NSettings _settings;
-        private readonly ILogger<N8NIntegrationService> _logger;
-
-        public N8NIntegrationService(
-            HttpClient httpClient,
-            IOptions<N8NSettings> settings,
-            ILogger<N8NIntegrationService> logger)
-        {
-            _httpClient = httpClient;
-            _settings = settings.Value;
-            _logger = logger;
-
-            ConfigureHttpClient();
-        }
-
-        private void ConfigureHttpClient()
-        {
-            _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "DoDoMan-BackOffice/1.0");
-            _httpClient.Timeout = TimeSpan.FromSeconds(30);
-        }
-
-        public async Task<bool> SendOrderStatusUpdateAsync(Order order)
-        {
-            try
-            {
-                var payload = new N8NOrderStatusRequest
-                {
-                    OrderId = order.OrderId,
-                    OrderNumber = order.OrderNumber, // Integer format matching N8N API
-                    OldStatus = GetOrderStatusFromHistory(order.OrderId),
-                    NewStatus = order.OrderStatus.ToString(),
-                    UpdatedAt = order.UpdatedAt,
-                    UpdatedBy = order.UpdatedBy ?? "System"
-                };
-
-                var endpoint = _settings.Endpoints.OrderStatusUpdate;
-                var response = await SendWebhookAsync(endpoint, payload, "order.status.updated");
-
-                if (response.Success)
-                {
-                    _logger.LogInformation("Order status update sent to N8N for order {OrderId}. Workflow ID: {WorkflowId}",
-                        order.OrderId, response.WorkflowId);
-                    return true;
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to send order status update to N8N for order {OrderId}. Message: {Message}",
-                        order.OrderId, response.Message);
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending order status update to N8N for order {OrderId}", order.OrderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> SendPaymentNotificationAsync(Order order)
-        {
-            try
-            {
-                var payload = new N8NPaymentNotificationRequest
-                {
-                    OrderId = order.OrderId,
-                    OrderNumber = order.OrderNumber, // Integer format matching N8N API
-                    PaymentMethod = order.PaymentMethod,
-                    PaymentStatus = order.PaymentStatus.ToString(),
-                    Amount = order.TotalAmount,
-                    PaymentReference = order.PaymentReference,
-                    ProcessedAt = DateTime.UtcNow
-                };
-
-                var endpoint = _settings.Endpoints.PaymentNotification;
-                var response = await SendWebhookAsync(endpoint, payload, "payment.processed");
-
-                if (response.Success)
-                {
-                    _logger.LogInformation("Payment notification sent to N8N for order {OrderId}. Workflow ID: {WorkflowId}",
-                        order.OrderId, response.WorkflowId);
-                    return true;
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to send payment notification to N8N for order {OrderId}. Message: {Message}",
-                        order.OrderId, response.Message);
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending payment notification to N8N for order {OrderId}", order.OrderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> SendCustomerNotificationAsync(int customerId, string notificationType, object data)
-        {
-            try
-            {
-                var payload = new
-                {
-                    CustomerId = customerId,
-                    NotificationType = notificationType,
-                    Data = data,
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = _settings.Endpoints.CustomerNotification;
-                var response = await SendWebhookAsync(endpoint, payload, "customer.notification");
-
-                if (response.Success)
-                {
-                    _logger.LogInformation("Customer notification sent to N8N for customer {CustomerId}, type: {NotificationType}",
-                        customerId, notificationType);
-                    return true;
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to send customer notification to N8N for customer {CustomerId}. Message: {Message}",
-                        customerId, response.Message);
-                    return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending customer notification to N8N for customer {CustomerId}", customerId);
-                return false;
-            }
-        }
-
-        public async Task<bool> TriggerOrderProcessingWorkflowAsync(int orderId)
-        {
-            try
-            {
-                var payload = new
-                {
-                    OrderId = orderId,
-                    WorkflowType = "order_processing",
-                    TriggerTime = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/order-processing";
-                var response = await SendWebhookAsync(endpoint, payload, "workflow.trigger");
-
-                _logger.LogInformation("Order processing workflow triggered for order {OrderId}. Success: {Success}",
-                    orderId, response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error triggering order processing workflow for order {OrderId}", orderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> TriggerPaymentProcessingWorkflowAsync(int orderId, string paymentMethod)
-        {
-            try
-            {
-                var payload = new
-                {
-                    OrderId = orderId,
-                    PaymentMethod = paymentMethod,
-                    WorkflowType = "payment_processing",
-                    TriggerTime = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/payment-processing";
-                var response = await SendWebhookAsync(endpoint, payload, "workflow.trigger");
-
-                _logger.LogInformation("Payment processing workflow triggered for order {OrderId} with method {PaymentMethod}. Success: {Success}",
-                    orderId, paymentMethod, response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error triggering payment processing workflow for order {OrderId}", orderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> TriggerOrderCancellationWorkflowAsync(int orderId, string reason)
-        {
-            try
-            {
-                var payload = new
-                {
-                    OrderId = orderId,
-                    CancellationReason = reason,
-                    WorkflowType = "order_cancellation",
-                    TriggerTime = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/order-cancellation";
-                var response = await SendWebhookAsync(endpoint, payload, "workflow.trigger");
-
-                _logger.LogInformation("Order cancellation workflow triggered for order {OrderId}. Success: {Success}",
-                    orderId, response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error triggering order cancellation workflow for order {OrderId}", orderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> SyncOrderDataAsync(int orderId)
-        {
-            try
-            {
-                // Get order data from database and send to N8N for synchronization
-                var payload = new
-                {
-                    OrderId = orderId,
-                    SyncType = "order_data",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/data-sync";
-                var response = await SendWebhookAsync(endpoint, payload, "data.sync");
-
-                _logger.LogInformation("Order data sync triggered for order {OrderId}. Success: {Success}",
-                    orderId, response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing order data for order {OrderId}", orderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> SyncCustomerDataAsync(int customerId)
-        {
-            try
-            {
-                var payload = new
-                {
-                    CustomerId = customerId,
-                    SyncType = "customer_data",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/data-sync";
-                var response = await SendWebhookAsync(endpoint, payload, "data.sync");
-
-                _logger.LogInformation("Customer data sync triggered for customer {CustomerId}. Success: {Success}",
-                    customerId, response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing customer data for customer {CustomerId}", customerId);
-                return false;
-            }
-        }
-
-        public async Task<bool> BulkSyncOrdersAsync(IEnumerable<int> orderIds)
-        {
-            try
-            {
-                var payload = new
-                {
-                    OrderIds = orderIds.ToArray(),
-                    SyncType = "bulk_orders",
-                    Timestamp = DateTime.UtcNow,
-                    Count = orderIds.Count()
-                };
-
-                var endpoint = "/webhook/bulk-sync";
-                var response = await SendWebhookAsync(endpoint, payload, "bulk.sync");
-
-                _logger.LogInformation("Bulk order sync triggered for {Count} orders. Success: {Success}",
-                    orderIds.Count(), response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error bulk syncing orders");
-                return false;
-            }
-        }
-
-        public bool ValidateWebhookSignature(string payload, string signature)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(_settings.WebhookSecret))
-                {
-                    _logger.LogWarning("Webhook secret not configured, skipping signature validation");
-                    return true; // Allow if no secret configured (development mode)
-                }
-
-                var expectedSignature = GenerateSignature(payload, _settings.WebhookSecret);
-                var isValid = signature.Equals($"sha256={expectedSignature}", StringComparison.OrdinalIgnoreCase);
-
-                if (!isValid)
-                {
-                    _logger.LogWarning("Invalid webhook signature received");
-                }
-
-                return isValid;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating webhook signature");
-                return false;
-            }
-        }
-
-        public async Task<bool> TestConnectionAsync()
-        {
-            try
-            {
-                var payload = new
-                {
-                    TestMessage = "Connection test from DoDoMan BackOffice",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/test";
-                var response = await SendWebhookAsync(endpoint, payload, "connection.test");
-
-                _logger.LogInformation("N8N connection test completed. Success: {Success}, Message: {Message}",
-                    response.Success, response.Message);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error testing N8N connection");
-                return false;
-            }
-        }
-
-        public async Task<bool> SendDailyReportAsync(DateTime reportDate)
-        {
-            try
-            {
-                var payload = new
-                {
-                    ReportDate = reportDate.ToString("yyyy-MM-dd"),
-                    ReportType = "daily",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/daily-report";
-                var response = await SendWebhookAsync(endpoint, payload, "report.daily");
-
-                _logger.LogInformation("Daily report sent to N8N for date {ReportDate}. Success: {Success}",
-                    reportDate.ToString("yyyy-MM-dd"), response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending daily report to N8N for date {ReportDate}", reportDate);
-                return false;
-            }
-        }
-
-        public async Task<bool> SendWeeklyReportAsync(DateTime weekStartDate)
-        {
-            try
-            {
-                var payload = new
-                {
-                    WeekStartDate = weekStartDate.ToString("yyyy-MM-dd"),
-                    WeekEndDate = weekStartDate.AddDays(6).ToString("yyyy-MM-dd"),
-                    ReportType = "weekly",
-                    Timestamp = DateTime.UtcNow
-                };
-
-                var endpoint = "/webhook/weekly-report";
-                var response = await SendWebhookAsync(endpoint, payload, "report.weekly");
-
-                _logger.LogInformation("Weekly report sent to N8N for week starting {WeekStartDate}. Success: {Success}",
-                    weekStartDate.ToString("yyyy-MM-dd"), response.Success);
-
-                return response.Success;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending weekly report to N8N for week {WeekStartDate}", weekStartDate);
-                return false;
-            }
-        }
-
-        #region Private Helper Methods
-
-        private async Task<N8NResponse> SendWebhookAsync(string endpoint, object payload, string eventType)
-        {
-            try
-            {
-                var jsonPayload = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                });
-
-                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-                // Add headers
-                content.Headers.Add("X-Event-Type", eventType);
-                content.Headers.Add("X-Timestamp", DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString());
-
-                // Add signature if webhook secret is configured
-                if (!string.IsNullOrEmpty(_settings.WebhookSecret))
-                {
-                    var signature = GenerateSignature(jsonPayload, _settings.WebhookSecret);
-                    content.Headers.Add("X-Hub-Signature-256", $"sha256={signature}");
-                }
-
-                var response = await _httpClient.PostAsync(endpoint, content);
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var n8nResponse = JsonSerializer.Deserialize<N8NResponse>(responseContent, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
-
-                    return n8nResponse ?? new N8NResponse
-                    {
-                        Success = true,
-                        Message = "Request sent successfully",
-                        Timestamp = DateTime.UtcNow
-                    };
-                }
-                else
-                {
-                    _logger.LogWarning("N8N webhook request failed. Status: {StatusCode}, Content: {Content}",
-                        response.StatusCode, responseContent);
-
-                    return new N8NResponse
-                    {
-                        Success = false,
-                        Message = $"HTTP {response.StatusCode}: {responseContent}",
-                        Timestamp = DateTime.UtcNow
-                    };
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "HTTP error sending webhook to N8N endpoint {Endpoint}", endpoint);
-                return new N8NResponse
-                {
-                    Success = false,
-                    Message = $"HTTP error: {ex.Message}",
-                    Timestamp = DateTime.UtcNow
-                };
-            }
-            catch (TaskCanceledException ex)
-            {
-                _logger.LogError(ex, "Timeout sending webhook to N8N endpoint {Endpoint}", endpoint);
-                return new N8NResponse
-                {
-                    Success = false,
-                    Message = "Request timeout",
-                    Timestamp = DateTime.UtcNow
-                };
-            }
-        }
-
-        private string GenerateSignature(string payload, string secret)
-        {
-            var secretBytes = Encoding.UTF8.GetBytes(secret);
-            var payloadBytes = Encoding.UTF8.GetBytes(payload);
-
-            using var hmac = new HMACSHA256(secretBytes);
-            var hashBytes = hmac.ComputeHash(payloadBytes);
-            return Convert.ToHexString(hashBytes).ToLower();
-        }
-
-        private string GetOrderStatusFromHistory(int orderId)
-        {
-            // This would typically query the order status history
-            // For now, return a placeholder
-            return "Pending";
-        }
-
-        #endregion
+        Task InvalidateOrderCacheAsync();
+        Task InvalidateOrderCacheAsync(int orderNumber);
+        Task HandleN8NWebhookAsync(string webhookType, object data);
     }
-}
-```
 
-### Step 6.2: Background Service for Scheduled Tasks
-
-**Services/Implementations/N8NBackgroundService.cs**
-```csharp
-using Microsoft.Extensions.Options;
-using DoDoManBackOffice.Services.Interfaces;
-using DoDoManBackOffice.Configuration;
-
-namespace DoDoManBackOffice.Services.Implementations
-{
-    public class N8NBackgroundService : BackgroundService
+    public class N8NCacheInvalidationService : IN8NCacheInvalidationService
     {
-        private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<N8NBackgroundService> _logger;
-        private readonly AppSettings _appSettings;
+        private readonly ICacheService _cacheService;
+        private readonly ILogger<N8NCacheInvalidationService> _logger;
 
-        public N8NBackgroundService(
-            IServiceProvider serviceProvider,
-            ILogger<N8NBackgroundService> logger,
-            IOptions<AppSettings> appSettings)
+        public N8NCacheInvalidationService(
+            ICacheService cacheService,
+            ILogger<N8NCacheInvalidationService> logger)
         {
-            _serviceProvider = serviceProvider;
+            _cacheService = cacheService;
             _logger = logger;
-            _appSettings = appSettings.Value;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            _logger.LogInformation("N8N Background Service started");
-
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await ProcessScheduledTasks();
-
-                    // Wait for 1 hour before next execution
-                    await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected when cancellation is requested
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in N8N background service");
-
-                    // Wait 5 minutes before retry on error
-                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                }
-            }
-
-            _logger.LogInformation("N8N Background Service stopped");
-        }
-
-        private async Task ProcessScheduledTasks()
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var n8nService = scope.ServiceProvider.GetRequiredService<IN8NIntegrationService>();
-
-            var currentHour = DateTime.Now.Hour;
-
-            // Send daily report at 8 AM
-            if (currentHour == 8)
-            {
-                await SendDailyReport(n8nService);
-            }
-
-            // Send weekly report on Monday at 9 AM
-            if (DateTime.Now.DayOfWeek == DayOfWeek.Monday && currentHour == 9)
-            {
-                await SendWeeklyReport(n8nService);
-            }
-
-            // Test connection every 6 hours
-            if (currentHour % 6 == 0)
-            {
-                await TestN8NConnection(n8nService);
-            }
-        }
-
-        private async Task SendDailyReport(IN8NIntegrationService n8nService)
+        public async Task InvalidateOrderCacheAsync()
         {
             try
             {
-                var yesterday = DateTime.Today.AddDays(-1);
-                var success = await n8nService.SendDailyReportAsync(yesterday);
+                // Remove all order-related cache entries
+                await _cacheService.RemoveByPatternAsync("orders_*");
+                _logger.LogInformation("Invalidated all order cache entries");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error invalidating order cache");
+            }
+        }
 
-                if (success)
+        public async Task InvalidateOrderCacheAsync(int orderNumber)
+        {
+            try
+            {
+                await _cacheService.RemoveAsync($"order_{orderNumber}");
+                await InvalidateOrderCacheAsync(); // Also clear list cache
+                _logger.LogInformation("Invalidated cache for order {OrderNumber}", orderNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error invalidating cache for order {OrderNumber}", orderNumber);
+            }
+        }
+
+        public async Task HandleN8NWebhookAsync(string webhookType, object data)
+        {
+            try
+            {
+                switch (webhookType.ToLower())
                 {
-                    _logger.LogInformation("Daily report sent successfully for {Date}", yesterday.ToString("yyyy-MM-dd"));
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to send daily report for {Date}", yesterday.ToString("yyyy-MM-dd"));
+                    case "order.created":
+                    case "order.updated":
+                    case "order.status.changed":
+                    case "payment.status.changed":
+                        await InvalidateOrderCacheAsync();
+                        break;
+                    default:
+                        _logger.LogDebug("Unhandled webhook type: {WebhookType}", webhookType);
+                        break;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error sending daily report");
-            }
-        }
-
-        private async Task SendWeeklyReport(IN8NIntegrationService n8nService)
-        {
-            try
-            {
-                var lastWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek - 6);
-                var success = await n8nService.SendWeeklyReportAsync(lastWeekStart);
-
-                if (success)
-                {
-                    _logger.LogInformation("Weekly report sent successfully for week starting {Date}",
-                        lastWeekStart.ToString("yyyy-MM-dd"));
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to send weekly report for week starting {Date}",
-                        lastWeekStart.ToString("yyyy-MM-dd"));
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending weekly report");
-            }
-        }
-
-        private async Task TestN8NConnection(IN8NIntegrationService n8nService)
-        {
-            try
-            {
-                var success = await n8nService.TestConnectionAsync();
-
-                if (!success)
-                {
-                    _logger.LogWarning("N8N connection test failed");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error testing N8N connection");
+                _logger.LogError(ex, "Error handling N8N webhook: {WebhookType}", webhookType);
             }
         }
     }
 }
 ```
 
-### Step 6.3: Webhook Controller for N8N Callbacks
+### Step 6.3: Webhook Controller for Cache Invalidation
 
-**Controllers/WebhookController.cs**
+**Controllers/N8NWebhookController.cs**
 ```csharp
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
@@ -703,382 +139,86 @@ namespace DoDoManBackOffice.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class WebhookController : ControllerBase
+    public class N8NWebhookController : ControllerBase
     {
-        private readonly IN8NIntegrationService _n8nService;
-        private readonly IOrderService _orderService;
-        private readonly ILogger<WebhookController> _logger;
+        private readonly IN8NCacheInvalidationService _cacheInvalidationService;
+        private readonly ILogger<N8NWebhookController> _logger;
 
-        public WebhookController(
-            IN8NIntegrationService n8nService,
-            IOrderService orderService,
-            ILogger<WebhookController> logger)
+        public N8NWebhookController(
+            IN8NCacheInvalidationService cacheInvalidationService,
+            ILogger<N8NWebhookController> logger)
         {
-            _n8nService = n8nService;
-            _orderService = orderService;
+            _cacheInvalidationService = cacheInvalidationService;
             _logger = logger;
         }
 
-        [HttpPost("n8n/order-processed")]
-        public async Task<IActionResult> OrderProcessed([FromBody] N8NOrderProcessedWebhook webhook)
+        [HttpPost("order-updated")]
+        public async Task<IActionResult> OrderUpdated([FromBody] N8NOrderUpdateWebhook webhook)
         {
             try
             {
-                // Validate webhook signature
-                if (!ValidateSignature())
-                {
-                    return Unauthorized("Invalid signature");
-                }
+                _logger.LogInformation("Received order update webhook for order {OrderNumber}", webhook.OrderNumber);
 
-                _logger.LogInformation("Received order processed webhook for order {OrderId}", webhook.OrderId);
+                await _cacheInvalidationService.InvalidateOrderCacheAsync(webhook.OrderNumber);
 
-                // Update order status based on N8N processing result
-                if (webhook.Success)
-                {
-                    await _orderService.UpdateOrderStatusAsync(
-                        webhook.OrderId,
-                        Models.Entities.OrderStatus.InProgress,
-                        "N8N",
-                        "Order processing completed successfully");
-                }
-                else
-                {
-                    await _orderService.UpdateOrderStatusAsync(
-                        webhook.OrderId,
-                        Models.Entities.OrderStatus.Pending,
-                        "N8N",
-                        $"Order processing failed: {webhook.ErrorMessage}");
-                }
+                return Ok(new { success = true, message = "Cache invalidated successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing order update webhook");
+                return StatusCode(500, new { success = false, message = "Internal server error" });
+            }
+        }
+
+        [HttpPost("data-changed")]
+        public async Task<IActionResult> DataChanged([FromBody] N8NDataChangeWebhook webhook)
+        {
+            try
+            {
+                _logger.LogInformation("Received data change webhook: {ChangeType}", webhook.ChangeType);
+
+                await _cacheInvalidationService.HandleN8NWebhookAsync(webhook.ChangeType, webhook.Data);
 
                 return Ok(new { success = true, message = "Webhook processed successfully" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing order webhook for order {OrderId}", webhook?.OrderId);
+                _logger.LogError(ex, "Error processing data change webhook");
                 return StatusCode(500, new { success = false, message = "Internal server error" });
             }
         }
 
-        [HttpPost("n8n/payment-confirmed")]
-        public async Task<IActionResult> PaymentConfirmed([FromBody] N8NPaymentConfirmedWebhook webhook)
-        {
-            try
-            {
-                if (!ValidateSignature())
-                {
-                    return Unauthorized("Invalid signature");
-                }
-
-                _logger.LogInformation("Received payment confirmation webhook for order {OrderId}", webhook.OrderId);
-
-                // Update payment status
-                if (webhook.Success)
-                {
-                    await _orderService.UpdatePaymentStatusAsync(
-                        webhook.OrderId,
-                        Models.Entities.PaymentStatus.Paid,
-                        "N8N",
-                        webhook.TransactionId);
-                }
-                else
-                {
-                    await _orderService.UpdatePaymentStatusAsync(
-                        webhook.OrderId,
-                        Models.Entities.PaymentStatus.Failed,
-                        "N8N",
-                        null);
-                }
-
-                return Ok(new { success = true, message = "Payment webhook processed successfully" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing payment webhook for order {OrderId}", webhook?.OrderId);
-                return StatusCode(500, new { success = false, message = "Internal server error" });
-            }
-        }
-
-        [HttpPost("n8n/notification-sent")]
-        public async Task<IActionResult> NotificationSent([FromBody] N8NNotificationWebhook webhook)
-        {
-            try
-            {
-                if (!ValidateSignature())
-                {
-                    return Unauthorized("Invalid signature");
-                }
-
-                _logger.LogInformation("Received notification webhook for order {OrderId}, type: {NotificationType}",
-                    webhook.OrderId, webhook.NotificationType);
-
-                // Log notification status
-                if (webhook.Success)
-                {
-                    _logger.LogInformation("Notification sent successfully for order {OrderId}", webhook.OrderId);
-                }
-                else
-                {
-                    _logger.LogWarning("Notification failed for order {OrderId}: {ErrorMessage}",
-                        webhook.OrderId, webhook.ErrorMessage);
-                }
-
-                return Ok(new { success = true, message = "Notification webhook processed successfully" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing notification webhook for order {OrderId}", webhook?.OrderId);
-                return StatusCode(500, new { success = false, message = "Internal server error" });
-            }
-        }
-
-        [HttpGet("n8n/health")]
+        [HttpGet("health")]
         public IActionResult Health()
         {
             return Ok(new
             {
                 status = "healthy",
                 timestamp = DateTime.UtcNow,
-                service = "DoDoMan BackOffice Webhook Endpoint"
+                service = "DoDoMan BackOffice N8N Webhook Endpoint"
             });
         }
-
-        private bool ValidateSignature()
-        {
-            try
-            {
-                var signature = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
-                if (string.IsNullOrEmpty(signature))
-                {
-                    return false;
-                }
-
-                // Read request body
-                Request.Body.Position = 0;
-                using var reader = new StreamReader(Request.Body);
-                var payload = reader.ReadToEnd();
-
-                return _n8nService.ValidateWebhookSignature(payload, signature);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating webhook signature");
-                return false;
-            }
-        }
     }
 
-    #region Webhook Models
-
-    public class N8NOrderProcessedWebhook
+    public class N8NOrderUpdateWebhook
     {
-        public int OrderId { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
-        public bool Success { get; set; }
-        public string? ErrorMessage { get; set; }
-        public DateTime ProcessedAt { get; set; }
-        public string WorkflowId { get; set; } = string.Empty;
+        public int OrderNumber { get; set; }
+        public string ChangeType { get; set; } = string.Empty;
+        public DateTime UpdatedAt { get; set; }
     }
 
-    public class N8NPaymentConfirmedWebhook
+    public class N8NDataChangeWebhook
     {
-        public int OrderId { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
-        public bool Success { get; set; }
-        public string? TransactionId { get; set; }
-        public decimal Amount { get; set; }
-        public string PaymentMethod { get; set; } = string.Empty;
-        public DateTime ProcessedAt { get; set; }
-        public string? ErrorMessage { get; set; }
-    }
-
-    public class N8NNotificationWebhook
-    {
-        public int OrderId { get; set; }
-        public string NotificationType { get; set; } = string.Empty;
-        public bool Success { get; set; }
-        public string? ErrorMessage { get; set; }
-        public DateTime SentAt { get; set; }
-        public string Channel { get; set; } = string.Empty; // email, sms, etc.
-    }
-
-    #endregion
-}
-```
-
-### Step 6.4: N8N Configuration and Middleware
-
-**Middleware/N8NMiddleware.cs**
-```csharp
-using System.Text;
-
-namespace DoDoManBackOffice.Middleware
-{
-    public class N8NMiddleware
-    {
-        private readonly RequestDelegate _next;
-        private readonly ILogger<N8NMiddleware> _logger;
-
-        public N8NMiddleware(RequestDelegate next, ILogger<N8NMiddleware> logger)
-        {
-            _next = next;
-            _logger = logger;
-        }
-
-        public async Task InvokeAsync(HttpContext context)
-        {
-            // Only process webhook requests
-            if (context.Request.Path.StartsWithSegments("/api/webhook"))
-            {
-                // Enable request body buffering for signature validation
-                context.Request.EnableBuffering();
-
-                // Log incoming webhook
-                _logger.LogInformation("Incoming webhook request: {Method} {Path} from {RemoteIp}",
-                    context.Request.Method,
-                    context.Request.Path,
-                    context.Connection.RemoteIpAddress);
-
-                // Read and log request body (be careful with sensitive data)
-                var body = await ReadRequestBodyAsync(context.Request);
-                _logger.LogDebug("Webhook payload size: {Size} bytes", body.Length);
-
-                // Reset stream position for downstream processing
-                context.Request.Body.Position = 0;
-            }
-
-            await _next(context);
-        }
-
-        private async Task<string> ReadRequestBodyAsync(HttpRequest request)
-        {
-            using var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: true);
-            var body = await reader.ReadToEndAsync();
-            request.Body.Position = 0;
-            return body;
-        }
-    }
-
-    public static class N8NMiddlewareExtensions
-    {
-        public static IApplicationBuilder UseN8NMiddleware(this IApplicationBuilder builder)
-        {
-            return builder.UseMiddleware<N8NMiddleware>();
-        }
+        public string ChangeType { get; set; } = string.Empty;
+        public object Data { get; set; } = new();
+        public DateTime Timestamp { get; set; }
     }
 }
 ```
 
-### Step 6.5: N8N Service Registration and Configuration
+### Step 6.4: N8N Health Check Service
 
-**Program.cs (Additional Configuration)**
-```csharp
-// Add to Program.cs after existing service registrations
-
-// N8N Integration
-builder.Services.AddHttpClient<IN8NIntegrationService>();
-builder.Services.AddScoped<IN8NIntegrationService, N8NIntegrationService>();
-
-// N8N Order Sync Service
-builder.Services.AddHttpClient<IN8NOrderSyncService>();
-builder.Services.AddScoped<IN8NOrderSyncService, N8NOrderSyncService>();
-
-// Background Services
-builder.Services.AddHostedService<N8NBackgroundService>();
-builder.Services.AddHostedService<N8NOrderSyncBackgroundService>();
-
-// Add N8N middleware after authentication
-app.UseAuthentication();
-app.UseN8NMiddleware(); // Add this line
-app.UseAuthorization();
-```
-
-### Step 6.6: N8N Workflow Templates
-
-**Documentation/N8N-Workflows.md**
-```markdown
-# N8N Workflow Templates for DoDoMan BackOffice
-
-## 1. Order Status Update Workflow
-
-**Webhook Trigger**: `/webhook/order-status`
-
-**Workflow Steps**:
-1. Webhook trigger receives order status update
-2. Extract order data (OrderId, OldStatus, NewStatus)
-3. Send email notification to customer
-4. Update external CRM system
-5. Log status change in analytics
-
-**N8N Workflow JSON**:
-```json
-{
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "/webhook/order-status",
-        "responseMode": "responseNode"
-      },
-      "name": "Webhook",
-      "type": "n8n-nodes-base.webhook",
-      "position": [240, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{$json.newStatus}}",
-              "operation": "equal",
-              "value2": "Completed"
-            }
-          ]
-        }
-      },
-      "name": "If Order Completed",
-      "type": "n8n-nodes-base.if",
-      "position": [460, 300]
-    },
-    {
-      "parameters": {
-        "subject": "您的訂單已完成 - {{$json.orderNumber}}",
-        "text": "親愛的客戶，您的訂單 {{$json.orderNumber}} 已經完成處理。",
-        "toEmail": "={{$json.customerEmail}}"
-      },
-      "name": "Send Completion Email",
-      "type": "n8n-nodes-base.emailSend",
-      "position": [680, 200]
-    }
-  ]
-}
-```
-
-## 2. Payment Processing Workflow
-
-**Webhook Trigger**: `/webhook/payment`
-
-**Workflow Steps**:
-1. Receive payment notification
-2. Validate payment status
-3. Send confirmation email
-4. Update inventory system
-5. Trigger fulfillment process
-
-## 3. Daily Report Workflow
-
-**Schedule Trigger**: Daily at 8:00 AM
-
-**Workflow Steps**:
-1. Query BackOffice API for daily statistics
-2. Generate report content
-3. Send email report to management
-4. Post summary to Slack/Teams
-5. Archive report data
-```
-
-### Step 6.7: Testing and Monitoring
-
-**Services/Implementations/N8NMonitoringService.cs**
+**Services/Implementations/N8NHealthService.cs**
 ```csharp
 using Microsoft.Extensions.Options;
 using DoDoManBackOffice.Services.Interfaces;
@@ -1086,20 +226,26 @@ using DoDoManBackOffice.Configuration;
 
 namespace DoDoManBackOffice.Services.Implementations
 {
-    public class N8NMonitoringService
+    public interface IN8NHealthService
     {
-        private readonly IN8NIntegrationService _n8nService;
-        private readonly ILogger<N8NMonitoringService> _logger;
+        Task<N8NHealthStatus> CheckHealthAsync();
+        Task<bool> TestApiConnectionAsync();
+    }
 
-        public N8NMonitoringService(
-            IN8NIntegrationService n8nService,
-            ILogger<N8NMonitoringService> logger)
+    public class N8NHealthService : IN8NHealthService
+    {
+        private readonly IN8NApiService _n8nApiService;
+        private readonly ILogger<N8NHealthService> _logger;
+
+        public N8NHealthService(
+            IN8NApiService n8nApiService,
+            ILogger<N8NHealthService> logger)
         {
-            _n8nService = n8nService;
+            _n8nApiService = n8nApiService;
             _logger = logger;
         }
 
-        public async Task<N8NHealthStatus> GetHealthStatusAsync()
+        public async Task<N8NHealthStatus> CheckHealthAsync()
         {
             var healthStatus = new N8NHealthStatus
             {
@@ -1108,80 +254,39 @@ namespace DoDoManBackOffice.Services.Implementations
 
             try
             {
-                // Test basic connection
-                var connectionSuccess = await _n8nService.TestConnectionAsync();
-                healthStatus.IsConnected = connectionSuccess;
+                // Test basic connection by trying to get orders
+                var orders = await _n8nApiService.GetOrdersAsync();
 
-                if (connectionSuccess)
-                {
-                    healthStatus.Status = "Healthy";
-                    healthStatus.Message = "N8N service is responding normally";
-                }
-                else
-                {
-                    healthStatus.Status = "Unhealthy";
-                    healthStatus.Message = "N8N service is not responding";
-                }
-
-                // Test webhook endpoints
-                healthStatus.WebhookEndpoints = await TestWebhookEndpoints();
+                healthStatus.IsConnected = true;
+                healthStatus.Status = "Healthy";
+                healthStatus.Message = $"N8N API is responding normally. Retrieved {orders.Count()} orders.";
+                healthStatus.OrderCount = orders.Count();
 
                 return healthStatus;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking N8N health status");
-                healthStatus.Status = "Error";
-                healthStatus.Message = $"Error checking health: {ex.Message}";
+                _logger.LogError(ex, "N8N health check failed");
+                healthStatus.IsConnected = false;
+                healthStatus.Status = "Unhealthy";
+                healthStatus.Message = $"N8N API connection failed: {ex.Message}";
                 return healthStatus;
             }
         }
 
-        private async Task<List<WebhookEndpointStatus>> TestWebhookEndpoints()
+        public async Task<bool> TestApiConnectionAsync()
         {
-            var endpoints = new List<WebhookEndpointStatus>();
-
-            var testEndpoints = new[]
+            try
             {
-                ("/webhook/order-status", "Order Status Updates"),
-                ("/webhook/payment", "Payment Notifications"),
-                ("/webhook/customer-notify", "Customer Notifications"),
-                ("/webhook/test", "Connection Test")
-            };
-
-            foreach (var (endpoint, description) in testEndpoints)
-            {
-                try
-                {
-                    var testPayload = new { test = true, timestamp = DateTime.UtcNow };
-
-                    // This would be implemented to test each endpoint
-                    var status = new WebhookEndpointStatus
-                    {
-                        Endpoint = endpoint,
-                        Description = description,
-                        IsAvailable = true, // Would be determined by actual test
-                        LastChecked = DateTime.UtcNow,
-                        ResponseTime = 250 // Placeholder
-                    };
-
-                    endpoints.Add(status);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to test N8N endpoint {Endpoint}", endpoint);
-                    endpoints.Add(new WebhookEndpointStatus
-                    {
-                        Endpoint = endpoint,
-                        Description = description,
-                        IsAvailable = false,
-                        LastChecked = DateTime.UtcNow,
-                        ErrorMessage = ex.Message
-                    });
-                }
+                var orders = await _n8nApiService.GetOrdersAsync();
+                _logger.LogInformation("N8N API connection test successful. Retrieved {Count} orders", orders.Count());
+                return true;
             }
-
-            return endpoints;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "N8N API connection test failed");
+                return false;
+            }
         }
     }
 
@@ -1191,249 +296,61 @@ namespace DoDoManBackOffice.Services.Implementations
         public bool IsConnected { get; set; }
         public string Status { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
-        public List<WebhookEndpointStatus> WebhookEndpoints { get; set; } = new();
-    }
-
-    public class WebhookEndpointStatus
-    {
-        public string Endpoint { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public bool IsAvailable { get; set; }
-        public DateTime LastChecked { get; set; }
-        public int ResponseTime { get; set; }
-        public string? ErrorMessage { get; set; }
+        public int OrderCount { get; set; }
     }
 }
 ```
 
-## Verification Steps
-1. Configure N8N instance with webhook endpoints
-2. Test webhook signature validation
-3. Verify order status update triggers N8N workflow
-4. Test payment processing integration
-5. Validate error handling and retry logic
-6. Monitor webhook delivery and response times
-7. Test scheduled reporting workflows
+### Step 6.5: Service Registration and Configuration
 
-### Step 6.8: N8N Get Order API Integration Service
-
-**Services/Implementations/N8NOrderSyncService.cs**
+**Program.cs (Additional Configuration)**
 ```csharp
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using DoDoManBackOffice.Models.Entities;
-using DoDoManBackOffice.Services.Interfaces;
+// N8N Integration Services (add after existing service registrations)
 
-namespace DoDoManBackOffice.Services.Implementations
-{
-    public interface IN8NOrderSyncService
-    {
-        Task<IEnumerable<N8NOrderResponse>> GetOrdersFromN8NAsync();
-        Task<N8NOrderResponse?> GetOrderFromN8NAsync(int orderNumber);
-        Task<bool> SyncOrdersToLocalDatabaseAsync();
-        Task<OrderDto?> MapN8NOrderToLocalAsync(N8NOrderResponse n8nOrder);
-    }
+// N8N API Service (already registered in Step 2.5)
+// builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(...);
+// builder.Services.AddScoped<IN8NApiService, N8NApiService>();
 
-    public class N8NOrderSyncService : IN8NOrderSyncService
-    {
-        private readonly HttpClient _httpClient;
-        private readonly IOrderService _orderService;
-        private readonly ILogger<N8NOrderSyncService> _logger;
-        private const string N8N_GET_ORDER_URL = "https://howardmei.app.n8n.cloud/webhook/get-order";
+// Additional N8N Services
+builder.Services.AddScoped<IN8NCacheInvalidationService, N8NCacheInvalidationService>();
+builder.Services.AddScoped<IN8NHealthService, N8NHealthService>();
 
-        public N8NOrderSyncService(
-            HttpClient httpClient,
-            IOrderService orderService,
-            ILogger<N8NOrderSyncService> logger)
-        {
-            _httpClient = httpClient;
-            _orderService = orderService;
-            _logger = logger;
-        }
-
-        public async Task<IEnumerable<N8NOrderResponse>> GetOrdersFromN8NAsync()
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync(N8N_GET_ORDER_URL);
-                response.EnsureSuccessStatusCode();
-
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var orders = JsonSerializer.Deserialize<N8NOrderResponse[]>(jsonContent);
-
-                _logger.LogInformation("Retrieved {Count} orders from N8N API", orders?.Length ?? 0);
-                return orders ?? Array.Empty<N8NOrderResponse>();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving orders from N8N API");
-                return Array.Empty<N8NOrderResponse>();
-            }
-        }
-
-        public async Task<N8NOrderResponse?> GetOrderFromN8NAsync(int orderNumber)
-        {
-            try
-            {
-                var orders = await GetOrdersFromN8NAsync();
-                return orders.FirstOrDefault(o => o.OrderNumber == orderNumber);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving order {OrderNumber} from N8N API", orderNumber);
-                return null;
-            }
-        }
-
-        public async Task<bool> SyncOrdersToLocalDatabaseAsync()
-        {
-            try
-            {
-                var n8nOrders = await GetOrdersFromN8NAsync();
-                var syncedCount = 0;
-
-                foreach (var n8nOrder in n8nOrders)
-                {
-                    var existingOrder = await _orderService.GetOrderByNumberAsync(n8nOrder.OrderNumber);
-                    if (existingOrder == null)
-                    {
-                        // Create new order from N8N data
-                        var newOrderDto = await MapN8NOrderToLocalAsync(n8nOrder);
-                        if (newOrderDto != null)
-                        {
-                            await _orderService.CreateOrderAsync(newOrderDto);
-                            syncedCount++;
-                        }
-                    }
-                    else
-                    {
-                        // Update existing order with N8N data
-                        var updatedOrderDto = await MapN8NOrderToLocalAsync(n8nOrder);
-                        if (updatedOrderDto != null)
-                        {
-                            updatedOrderDto.OrderId = existingOrder.OrderId;
-                            await _orderService.UpdateOrderAsync(updatedOrderDto);
-                            syncedCount++;
-                        }
-                    }
-                }
-
-                _logger.LogInformation("Synchronized {Count} orders from N8N API", syncedCount);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error synchronizing orders from N8N API");
-                return false;
-            }
-        }
-
-        public async Task<OrderDto?> MapN8NOrderToLocalAsync(N8NOrderResponse n8nOrder)
-        {
-            try
-            {
-                return new OrderDto
-                {
-                    OrderNumber = n8nOrder.OrderNumber,
-                    OrderDate = n8nOrder.GetParsedOrderDate(),
-                    CustomerName = n8nOrder.CustomerName,
-                    PaymentMethod = n8nOrder.PaymentMethod,
-                    PaymentStatus = n8nOrder.GetMappedPaymentStatus(),
-                    OrderStatus = OrderStatus.Pending, // Default status for synced orders
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    // Note: TotalAmount and other fields would need to be retrieved from another N8N endpoint
-                    TotalAmount = 0m // Placeholder - needs actual implementation
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error mapping N8N order {OrderNumber} to local format", n8nOrder.OrderNumber);
-                return null;
-            }
-        }
-    }
-
-    // N8N Get Order API Response Models
-    public class N8NOrderResponse
-    {
-        [JsonPropertyName("row_number")]
-        public int RowNumber { get; set; }
-
-        [JsonPropertyName("訂單編號")]
-        public int OrderNumber { get; set; }
-
-        [JsonPropertyName("訂單日期")]
-        public string OrderDate { get; set; } = string.Empty;
-
-        [JsonPropertyName("客戶名稱")]
-        public string CustomerName { get; set; } = string.Empty;
-
-        [JsonPropertyName("支付方式")]
-        public string PaymentMethod { get; set; } = string.Empty;
-
-        [JsonPropertyName("支付狀態")]
-        public string PaymentStatus { get; set; } = string.Empty;
-
-        // Helper method to parse date from N8N format "M/d/yyyy HH:mm:ss"
-        public DateTime GetParsedOrderDate()
-        {
-            if (DateTime.TryParseExact(OrderDate, "M/d/yyyy HH:mm:ss",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None, out DateTime result))
-            {
-                return result;
-            }
-            return DateTime.UtcNow; // Fallback to current time
-        }
-
-        // Helper method to map N8N payment status to local enum
-        public PaymentStatus GetMappedPaymentStatus()
-        {
-            return PaymentStatus.ToLower() switch
-            {
-                "success" => Models.Entities.PaymentStatus.Paid,
-                "pending" => Models.Entities.PaymentStatus.Pending,
-                "failed" => Models.Entities.PaymentStatus.Failed,
-                _ => Models.Entities.PaymentStatus.Pending
-            };
-        }
-    }
-}
+// Background Services for N8N monitoring
+builder.Services.AddHostedService<N8NHealthCheckBackgroundService>();
 ```
 
-### Step 6.9: N8N API Configuration Updates
-
-**Configuration/N8NSettings.cs**
+**Configuration/N8NSettings.cs (Updated)**
 ```csharp
 namespace DoDoManBackOffice.Configuration
 {
     public class N8NSettings
     {
-        public string BaseUrl { get; set; } = string.Empty;
+        public string BaseUrl { get; set; } = "https://howardmei.app.n8n.cloud";
+        public string OrdersApiUrl { get; set; } = "https://howardmei.app.n8n.cloud/webhook/get-order";
         public string ApiKey { get; set; } = string.Empty;
         public string WebhookSecret { get; set; } = string.Empty;
-        public N8NEndpoints Endpoints { get; set; } = new();
+        public int Timeout { get; set; } = 30;
 
-        // N8N Get Order API Configuration
-        public string GetOrderUrl { get; set; } = "https://howardmei.app.n8n.cloud/webhook/get-order";
-        public int SyncIntervalMinutes { get; set; } = 30; // How often to sync orders
-        public bool AutoSyncEnabled { get; set; } = true;
+        // Health Check Settings
+        public int HealthCheckIntervalMinutes { get; set; } = 60;
+        public bool HealthCheckEnabled { get; set; } = true;
+
+        // Webhook Endpoints (for receiving callbacks from N8N)
+        public N8NWebhookEndpoints WebhookEndpoints { get; set; } = new();
     }
 
-    public class N8NEndpoints
+    public class N8NWebhookEndpoints
     {
-        public string OrderStatusUpdate { get; set; } = "/webhook/order-status";
-        public string PaymentNotification { get; set; } = "/webhook/payment";
-        public string CustomerNotification { get; set; } = "/webhook/customer-notify";
-        public string GetOrder { get; set; } = "/webhook/get-order";
+        public string OrderUpdated { get; set; } = "/api/n8nwebhook/order-updated";
+        public string DataChanged { get; set; } = "/api/n8nwebhook/data-changed";
+        public string Health { get; set; } = "/api/n8nwebhook/health";
     }
 }
 ```
 
-### Step 6.10: Background Service for Order Synchronization
+### Step 6.6: Background Health Check Service
 
-**Services/Implementations/N8NOrderSyncBackgroundService.cs**
+**Services/Implementations/N8NHealthCheckBackgroundService.cs**
 ```csharp
 using Microsoft.Extensions.Options;
 using DoDoManBackOffice.Services.Interfaces;
@@ -1441,15 +358,15 @@ using DoDoManBackOffice.Configuration;
 
 namespace DoDoManBackOffice.Services.Implementations
 {
-    public class N8NOrderSyncBackgroundService : BackgroundService
+    public class N8NHealthCheckBackgroundService : BackgroundService
     {
         private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<N8NOrderSyncBackgroundService> _logger;
+        private readonly ILogger<N8NHealthCheckBackgroundService> _logger;
         private readonly N8NSettings _n8nSettings;
 
-        public N8NOrderSyncBackgroundService(
+        public N8NHealthCheckBackgroundService(
             IServiceProvider serviceProvider,
-            ILogger<N8NOrderSyncBackgroundService> logger,
+            ILogger<N8NHealthCheckBackgroundService> logger,
             IOptions<N8NSettings> n8nSettings)
         {
             _serviceProvider = serviceProvider;
@@ -1459,15 +376,21 @@ namespace DoDoManBackOffice.Services.Implementations
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("N8N Order Sync Background Service started");
+            if (!_n8nSettings.HealthCheckEnabled)
+            {
+                _logger.LogInformation("N8N health check is disabled");
+                return;
+            }
 
-            while (!stoppingToken.IsCancellationRequested && _n8nSettings.AutoSyncEnabled)
+            _logger.LogInformation("N8N Health Check Background Service started");
+
+            while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    await SyncOrdersFromN8N();
+                    await PerformHealthCheck();
 
-                    var delayMinutes = _n8nSettings.SyncIntervalMinutes;
+                    var delayMinutes = _n8nSettings.HealthCheckIntervalMinutes;
                     await Task.Delay(TimeSpan.FromMinutes(delayMinutes), stoppingToken);
                 }
                 catch (OperationCanceledException)
@@ -1476,39 +399,218 @@ namespace DoDoManBackOffice.Services.Implementations
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in N8N order sync background service");
+                    _logger.LogError(ex, "Error in N8N health check background service");
                     await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
                 }
             }
 
-            _logger.LogInformation("N8N Order Sync Background Service stopped");
+            _logger.LogInformation("N8N Health Check Background Service stopped");
         }
 
-        private async Task SyncOrdersFromN8N()
+        private async Task PerformHealthCheck()
         {
             using var scope = _serviceProvider.CreateScope();
-            var syncService = scope.ServiceProvider.GetRequiredService<IN8NOrderSyncService>();
+            var healthService = scope.ServiceProvider.GetRequiredService<IN8NHealthService>();
 
             try
             {
-                var success = await syncService.SyncOrdersToLocalDatabaseAsync();
-                if (success)
+                var healthStatus = await healthService.CheckHealthAsync();
+
+                if (healthStatus.IsConnected)
                 {
-                    _logger.LogInformation("Order synchronization completed successfully");
+                    _logger.LogInformation("N8N health check passed: {Message}", healthStatus.Message);
                 }
                 else
                 {
-                    _logger.LogWarning("Order synchronization completed with errors");
+                    _logger.LogWarning("N8N health check failed: {Message}", healthStatus.Message);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during order synchronization");
+                _logger.LogError(ex, "Error during N8N health check");
             }
         }
     }
 }
 ```
+
+### Step 6.7: Integration Testing Support
+
+**Services/Implementations/N8NTestService.cs**
+```csharp
+using DoDoManBackOffice.Services.Interfaces;
+using DoDoManBackOffice.Models.ViewModels;
+
+namespace DoDoManBackOffice.Services.Implementations
+{
+    public interface IN8NTestService
+    {
+        Task<N8NTestResult> RunIntegrationTestAsync();
+        Task<N8NTestResult> TestOrderRetrievalAsync();
+        Task<N8NTestResult> TestCacheInvalidationAsync();
+    }
+
+    public class N8NTestService : IN8NTestService
+    {
+        private readonly IN8NApiService _n8nApiService;
+        private readonly IN8NHealthService _healthService;
+        private readonly IN8NCacheInvalidationService _cacheService;
+        private readonly ILogger<N8NTestService> _logger;
+
+        public N8NTestService(
+            IN8NApiService n8nApiService,
+            IN8NHealthService healthService,
+            IN8NCacheInvalidationService cacheService,
+            ILogger<N8NTestService> logger)
+        {
+            _n8nApiService = n8nApiService;
+            _healthService = healthService;
+            _cacheService = cacheService;
+            _logger = logger;
+        }
+
+        public async Task<N8NTestResult> RunIntegrationTestAsync()
+        {
+            var testResult = new N8NTestResult
+            {
+                TestName = "N8N Integration Test",
+                StartTime = DateTime.UtcNow
+            };
+
+            try
+            {
+                // Test 1: Health Check
+                var healthCheck = await _healthService.CheckHealthAsync();
+                testResult.AddTest("Health Check", healthCheck.IsConnected, healthCheck.Message);
+
+                if (!healthCheck.IsConnected)
+                {
+                    testResult.Success = false;
+                    testResult.EndTime = DateTime.UtcNow;
+                    return testResult;
+                }
+
+                // Test 2: Order Retrieval
+                var orderTest = await TestOrderRetrievalAsync();
+                testResult.AddTest("Order Retrieval", orderTest.Success, orderTest.Message);
+
+                // Test 3: Cache Invalidation
+                var cacheTest = await TestCacheInvalidationAsync();
+                testResult.AddTest("Cache Invalidation", cacheTest.Success, cacheTest.Message);
+
+                testResult.Success = testResult.TestResults.All(t => t.Success);
+                testResult.EndTime = DateTime.UtcNow;
+
+                return testResult;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error running N8N integration test");
+                testResult.Success = false;
+                testResult.Message = $"Test failed with exception: {ex.Message}";
+                testResult.EndTime = DateTime.UtcNow;
+                return testResult;
+            }
+        }
+
+        public async Task<N8NTestResult> TestOrderRetrievalAsync()
+        {
+            try
+            {
+                var orders = await _n8nApiService.GetOrdersAsync();
+                return new N8NTestResult
+                {
+                    TestName = "Order Retrieval Test",
+                    Success = true,
+                    Message = $"Successfully retrieved {orders.Count()} orders from N8N API"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new N8NTestResult
+                {
+                    TestName = "Order Retrieval Test",
+                    Success = false,
+                    Message = $"Failed to retrieve orders: {ex.Message}"
+                };
+            }
+        }
+
+        public async Task<N8NTestResult> TestCacheInvalidationAsync()
+        {
+            try
+            {
+                await _cacheService.InvalidateOrderCacheAsync();
+                return new N8NTestResult
+                {
+                    TestName = "Cache Invalidation Test",
+                    Success = true,
+                    Message = "Successfully invalidated order cache"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new N8NTestResult
+                {
+                    TestName = "Cache Invalidation Test",
+                    Success = false,
+                    Message = $"Failed to invalidate cache: {ex.Message}"
+                };
+            }
+        }
+    }
+
+    public class N8NTestResult
+    {
+        public string TestName { get; set; } = string.Empty;
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public List<N8NTestResult> TestResults { get; set; } = new();
+
+        public void AddTest(string testName, bool success, string message)
+        {
+            TestResults.Add(new N8NTestResult
+            {
+                TestName = testName,
+                Success = success,
+                Message = message,
+                StartTime = DateTime.UtcNow,
+                EndTime = DateTime.UtcNow
+            });
+        }
+
+        public TimeSpan Duration => EndTime - StartTime;
+    }
+}
+```
+
+## Verification Steps
+
+1. **配置 N8N API 端點**: 更新 appsettings.json 中的 N8N 設定
+2. **測試 API 連接**: 使用 N8N Health Service 驗證連接
+3. **驗證資料擷取**: 確認能從 N8N API 獲取訂單資料
+4. **測試快取失效**: 驗證 webhook 可以正確清除快取
+5. **監控系統健康狀態**: 檢查背景服務運作狀況
+
+## Key Changes from Original Database Approach
+
+### Architecture Simplification
+1. **移除複雜的資料同步**: 不再需要雙向資料同步邏輯
+2. **簡化 Webhook 用途**: 主要用於快取失效而非資料更新
+3. **即時資料展示**: 每次查詢都從 N8N API 獲取最新資料
+4. **減少錯誤處理複雜度**: 不需要處理資料同步衝突
+
+### Integration Points
+1. **N8N Get Order API**: 主要資料來源
+2. **Cache Invalidation Webhooks**: 當 N8N 資料變更時清除快取
+3. **Health Check Monitoring**: 定期檢查 N8N API 可用性
+
+### Performance Considerations
+1. **智能快取策略**: 30分鐘快取以減少 API 呼叫
+2. **失效驅動更新**: 只在資料變更時清除快取
+3. **健康狀態監控**: 主動偵測 API 問題
 
 ## Next Steps
 After completing N8N integration, proceed to:
