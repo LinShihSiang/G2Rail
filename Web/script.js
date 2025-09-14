@@ -420,7 +420,7 @@ class DestinationCarousel {
                 title: "烏菲茲美術館藝術之旅",
                 location: "佛羅倫斯",
                 price: "€35.9 起",
-                image: "https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
+                image: "https://blog-static.kkday.com/zh-hk/blog/wp-content/uploads/shutterstock_673635160-644x444.jpg",
                 intro: "義大利文藝復興藝術寶庫"
             }
         ];
