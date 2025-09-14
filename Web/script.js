@@ -6,7 +6,7 @@ class AppManager {
         this.isMobile = this.isIOS || this.isAndroid;
 
         // App Store URL
-        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing';
+        this.appURL = 'https://tinyurl.com/2czszj64';
 
         // App URL schemes for opening installed apps
         this.appScheme = 'dodoman://';
@@ -21,9 +21,12 @@ class AppManager {
 
     setupEventListeners() {
         // Header app button
-        document.getElementById('openAppBtn').addEventListener('click', () => {
-            this.handleAppOpen();
-        });
+        const openAppBtn = document.getElementById('openAppBtn');
+        if (openAppBtn) {
+            openAppBtn.addEventListener('click', () => {
+                this.handleAppOpen();
+            });
+        }
 
         // Hero section download button
         document.getElementById('heroDownloadBtn').addEventListener('click', () => {
