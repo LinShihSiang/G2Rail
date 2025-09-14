@@ -112,7 +112,7 @@ class GermanyTourCard extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '€${tour.priceEur}',
+                        '€${tour.sellPrice.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: Colors.green[700],
                           fontWeight: FontWeight.bold,

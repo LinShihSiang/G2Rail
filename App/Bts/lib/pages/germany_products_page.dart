@@ -36,7 +36,7 @@ class _GermanyProductsPageState extends State<GermanyProductsPage> {
             const SizedBox(height: 8),
             Text('Location: ${tour.location}'),
             const SizedBox(height: 8),
-            Text('Price: €${tour.priceEur}'),
+            Text('Sell Price: €${tour.sellPrice.toStringAsFixed(2)}'),
           ],
         ),
         actions: [
