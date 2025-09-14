@@ -26,8 +26,8 @@
             <div class="container-fluid">
                 <!-- Logo and Brand -->
                 <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Dashboard" asp-action="Index">
-                    <span class="fw-bold fs-4" style="color: #007bff;">SRMLOGO</span>
-                    <span class="ms-2 small">2.0</span>
+                    <span class="fw-bold fs-4" style="color: #007bff;">嘟男旅遊 DoDoMan</span>
+                    <span class="ms-2 small">1.0</span>
                 </a>
 
                 <!-- Navigation Menu -->
