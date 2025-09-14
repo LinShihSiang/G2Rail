@@ -7,6 +7,7 @@ class I18nManager {
                 // Header 導航
                 'nav.experiences': '體驗',
                 'nav.destinations': '目的地',
+                'nav.customerService': '客服',
                 'nav.about': '關於我們',
                 'nav.openApp': '打開 App',
 
@@ -122,6 +123,15 @@ class I18nManager {
                 'app.feature3': '✓ 24/7 客服支援',
                 'app.feature4': '✓ 個人化推薦',
 
+                // Customer Service Section
+                'customerService.title': '需要客服協助嗎？',
+                'customerService.order.title': '諮詢訂單問題',
+                'customerService.order.desc': '將帶您至訂單列表選擇要詢問的訂單',
+                'customerService.order.button': '查詢訂單',
+                'customerService.general.title': '諮詢商品或其他問題',
+                'customerService.general.desc': '由於諮詢量大，將盡快在一天內回覆',
+                'customerService.general.button': '聯絡客服',
+
                 // About Section
                 'about.title': '關於 DodoMan',
                 'about.desc': 'DodoMan 致力於為旅行者提供最優質的旅遊體驗。我們相信每一次旅行都應該是獨特而難忘的，因此我們精心策劃每一個行程，確保您能夠深度體驗當地文化、品嚐地道美食、欣賞壯麗景色。',
@@ -164,6 +174,7 @@ class I18nManager {
                 // Header Navigation
                 'nav.experiences': 'Experiences',
                 'nav.destinations': 'Destinations',
+                'nav.customerService': 'Support',
                 'nav.about': 'About Us',
                 'nav.openApp': 'Open App',
 
@@ -279,6 +290,15 @@ class I18nManager {
                 'app.feature2': '✓ Instant trip confirmation',
                 'app.feature3': '✓ 24/7 customer support',
                 'app.feature4': '✓ Personalized recommendations',
+
+                // Customer Service Section
+                'customerService.title': 'Need Customer Support?',
+                'customerService.order.title': 'Order Inquiry',
+                'customerService.order.desc': 'We will direct you to your order list to select the order you want to inquire about',
+                'customerService.order.button': 'View Orders',
+                'customerService.general.title': 'Product or Other Inquiries',
+                'customerService.general.desc': 'Due to high inquiry volume, we will respond as soon as possible within one day',
+                'customerService.general.button': 'Contact Support',
 
                 // About Section
                 'about.title': 'About DodoMan',

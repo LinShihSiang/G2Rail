@@ -473,18 +473,27 @@ class GalleryManager {
 
         galleryGrid.innerHTML = this.attractions.map(attraction => {
             const i18n = window.i18n;
-            const title = i18n ? i18n.t(`gallery.${attraction.key}.title`) : `gallery.${attraction.key}.title`;
-            const subtitle = i18n ? i18n.t(`gallery.${attraction.key}.subtitle`) : `gallery.${attraction.key}.subtitle`;
-            const location = i18n ? i18n.t(`gallery.${attraction.key}.location`) : `gallery.${attraction.key}.location`;
-            const description = i18n ? i18n.t(`gallery.${attraction.key}.desc`) : `gallery.${attraction.key}.desc`;
-            const duration = i18n ? i18n.t(`gallery.${attraction.key}.duration`) : attraction.duration;
-            const badge = i18n ? i18n.t(`gallery.${attraction.key}.badge`) : `gallery.${attraction.key}.badge`;
-            const bookNow = i18n ? i18n.t('package.bookNow') : 'Book Now';
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                // Check if translation is undefined, null, or equals the key (meaning no translation found)
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`gallery.${attraction.key}.title`, attraction.key.charAt(0).toUpperCase() + attraction.key.slice(1));
+            const subtitle = safeTranslate(`gallery.${attraction.key}.subtitle`, 'Experience');
+            const location = safeTranslate(`gallery.${attraction.key}.location`, 'Europe');
+            const description = safeTranslate(`gallery.${attraction.key}.desc`, 'Discover amazing experiences and create unforgettable memories.');
+            const duration = safeTranslate(`gallery.${attraction.key}.duration`, attraction.duration || '1 Day');
+            const badge = safeTranslate(`gallery.${attraction.key}.badge`, 'Featured');
+            const bookNow = safeTranslate('package.bookNow', 'Book Now');
 
             // Generate features list (3 features for attractions)
             const features = [];
             for (let i = 1; i <= 3; i++) {
-                const feature = i18n ? i18n.t(`gallery.${attraction.key}.feature${i}`) : `gallery.${attraction.key}.feature${i}`;
+                const feature = safeTranslate(`gallery.${attraction.key}.feature${i}`, `Feature ${i}`);
                 features.push(feature);
             }
 
@@ -686,6 +695,7 @@ class DestinationCarousel {
     init() {
         this.loadDestinations();
         this.setupEventListeners();
+        this.setupLanguageChangeListener();
         this.startAutoPlay();
     }
 
@@ -701,16 +711,30 @@ class DestinationCarousel {
         const track = document.getElementById('carouselTrack');
         if (!track) return;
 
-        track.innerHTML = this.slides.map(slide => `
-            <div class="carousel-slide">
-                <img src="${slide.image}" alt="${slide.title}" />
-                <div class="carousel-slide-overlay">
-                    <div class="carousel-slide-title">${slide.title}</div>
-                    <div class="carousel-slide-location">📍 ${slide.location}</div>
-                    <div class="carousel-slide-price">${slide.price}</div>
+        track.innerHTML = this.slides.map(slide => {
+            const i18n = window.i18n;
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`gallery.${slide.key}.title`, slide.key.charAt(0).toUpperCase() + slide.key.slice(1));
+            const location = safeTranslate(`gallery.${slide.key}.location`, 'Europe');
+
+            return `
+                <div class="carousel-slide">
+                    <img src="${slide.image}" alt="${title}" />
+                    <div class="carousel-slide-overlay">
+                        <div class="carousel-slide-title">${title}</div>
+                        <div class="carousel-slide-location">📍 ${location}</div>
+                        <div class="carousel-slide-price">${slide.price}</div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     renderDots() {
@@ -853,6 +877,13 @@ class DestinationCarousel {
         this.stopAutoPlay();
         this.startAutoPlay();
     }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render carousel
+        document.addEventListener('languageChanged', () => {
+            this.renderCarousel();
+        });
+    }
 }
 
 // Initialize everything when DOM is loaded
@@ -895,8 +926,145 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Customer Service Email Functionality
+    setupCustomerServiceHandlers();
+
     console.log('DodoMan Landing Page with Destination Carousel initialized successfully!');
 });
+
+// Customer Service Email Handler
+function setupCustomerServiceHandlers() {
+    // Get all customer service buttons
+    const orderInquiryBtns = document.querySelectorAll('[data-i18n="customerService.order.button"]');
+    const generalInquiryBtns = document.querySelectorAll('[data-i18n="customerService.general.button"]');
+
+    // Handle order inquiry buttons
+    orderInquiryBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleOrderInquiry();
+        });
+    });
+
+    // Handle general inquiry buttons
+    generalInquiryBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleGeneralInquiry();
+        });
+    });
+}
+
+function handleOrderInquiry() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const subjects = {
+        'zh-TW': '訂單查詢 - DodoMan 客服',
+        'en': 'Order Inquiry - DodoMan Customer Service'
+    };
+
+    const bodies = {
+        'zh-TW': '親愛的客服團隊，\n\n我需要查詢我的訂單，詳細資訊如下：\n\n訂單編號：[請填入您的訂單編號]\n預訂日期：[請填入預訂日期]\n問題描述：[請描述您的問題]\n\n感謝您的協助！\n\n此致\n[您的姓名]',
+        'en': 'Dear Customer Service Team,\n\nI need to inquire about my order. Details are as follows:\n\nOrder Number: [Please enter your order number]\nBooking Date: [Please enter booking date]\nIssue Description: [Please describe your issue]\n\nThank you for your assistance!\n\nBest regards,\n[Your Name]'
+    };
+
+    openEmailClient(subjects[currentLang], bodies[currentLang]);
+}
+
+function handleGeneralInquiry() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const subjects = {
+        'zh-TW': '一般諮詢 - DodoMan 客服',
+        'en': 'General Inquiry - DodoMan Customer Service'
+    };
+
+    const bodies = {
+        'zh-TW': '親愛的客服團隊，\n\n我想諮詢以下問題：\n\n問題類型：[產品諮詢/技術支援/其他]\n詳細描述：[請詳細描述您的問題或需求]\n聯絡方式：[您的電話或其他聯絡方式]\n\n期待您的回覆，謝謝！\n\n此致\n[您的姓名]',
+        'en': 'Dear Customer Service Team,\n\nI would like to inquire about the following:\n\nInquiry Type: [Product Information/Technical Support/Other]\nDetailed Description: [Please describe your question or needs in detail]\nContact Information: [Your phone number or other contact method]\n\nLooking forward to your response, thank you!\n\nBest regards,\n[Your Name]'
+    };
+
+    openEmailClient(subjects[currentLang], bodies[currentLang]);
+}
+
+function openEmailClient(subject, body) {
+    const customerServiceEmail = 'howard.mei@onelab.tw';
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+
+    const mailtoLink = `mailto:${customerServiceEmail}?subject=${encodedSubject}&body=${encodedBody}`;
+
+    try {
+        // Open email client
+        window.location.href = mailtoLink;
+
+        // Show feedback message
+        showEmailFeedback();
+    } catch (error) {
+        console.error('Error opening email client:', error);
+        // Fallback: copy email to clipboard
+        fallbackEmailCopy(customerServiceEmail, subject);
+    }
+}
+
+function showEmailFeedback() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const messages = {
+        'zh-TW': '正在開啟您的郵件應用程式...',
+        'en': 'Opening your email application...'
+    };
+
+    // Create temporary feedback message
+    const feedback = document.createElement('div');
+    feedback.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        background: #2563eb;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-size: 0.9rem;
+        animation: slideIn 0.3s ease;
+    `;
+    feedback.textContent = messages[currentLang];
+
+    // Add animation CSS
+    if (!document.querySelector('#emailFeedbackStyle')) {
+        const style = document.createElement('style');
+        style.id = 'emailFeedbackStyle';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(feedback);
+
+    // Remove feedback after 3 seconds
+    setTimeout(() => {
+        if (feedback && feedback.parentNode) {
+            feedback.remove();
+        }
+    }, 3000);
+}
+
+function fallbackEmailCopy(email, subject) {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const messages = {
+        'zh-TW': `無法開啟郵件應用程式。客服信箱：${email}`,
+        'en': `Unable to open email application. Customer service email: ${email}`
+    };
+
+    alert(messages[currentLang]);
+}
 
 // Add CSS for ripple effect
 const style = document.createElement('style');
