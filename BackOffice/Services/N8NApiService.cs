@@ -49,8 +49,8 @@ namespace DoDoManBackOffice.Services
         {
             var allOrders = await GetOrdersAsync();
 
-            // Apply client-side filtering
-            var filteredOrders = allOrders.AsQueryable();
+            // Apply client-side filtering using LINQ to Objects (not IQueryable)
+            var filteredOrders = allOrders.AsEnumerable();
 
             if (orderNumber.HasValue)
             {

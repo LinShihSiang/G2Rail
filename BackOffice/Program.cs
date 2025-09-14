@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using DoDoManBackOffice.Services;
 using DoDoManBackOffice.Services.Interfaces;
 using DoDoManBackOffice.Services.Implementations;
 using DoDoManBackOffice.Configuration;
+using DoDoManBackOffice.Models.ViewModels;
+using DoDoManBackOffice.Models.DTOs;
 using Serilog;
 using FluentValidation.AspNetCore;
 using FluentValidation;
@@ -26,8 +30,11 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
-})
-.AddInMemoryStores();
+});
+
+// Add Entity Framework with In-Memory database for Identity (demo purposes)
+builder.Services.AddDbContext<IdentityDbContext>(options =>
+    options.UseInMemoryDatabase("DefaultConnection"));
 
 // Configuration Objects
 builder.Services.Configure<N8NSettings>(builder.Configuration.GetSection("N8NSettings"));
@@ -35,8 +42,15 @@ builder.Services.Configure<AppSettings>(builder.Configuration.GetSection("Applic
 
 // Service Registration
 builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IN8NIntegrationService, N8NIntegrationService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<ICacheService, CacheService>();
+builder.Services.AddScoped<IReportingService, ReportingService>();
+
+// Register memory caching
+builder.Services.AddMemoryCache();
+
+// Register validators
+builder.Services.AddScoped<IValidator<FilterViewModel>, FilterViewModelValidator>();
+builder.Services.AddScoped<IValidator<N8NOrderResponseDto>, N8NOrderResponseValidator>();
 
 // Add HTTP client for N8N API
 builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(client =>
