@@ -1,7 +1,7 @@
 # 03. Service Layer Implementation
 
 ## Overview
-實作 DoDoMan 後台管理系統的業務邏輯層，包括訂單管理服務、N8N 整合服務和支付服務。
+實作 DoDoMan 後台管理系統的業務邏輯層，專注於 N8N API 整合、訂單資料處理和業務邏輯。系統不使用本地資料庫，所有資料來源為 N8N API。
 
 ## Implementation Steps
 
@@ -9,7 +9,6 @@
 
 **Services/Interfaces/IOrderService.cs**
 ```csharp
-using DoDoManBackOffice.Models.Entities;
 using DoDoManBackOffice.Models.ViewModels;
 using DoDoManBackOffice.Models.DTOs;
 
@@ -17,55 +16,47 @@ namespace DoDoManBackOffice.Services.Interfaces
 {
     public interface IOrderService
     {
-        // Query Methods
+        // Query Methods (N8N API Based)
         Task<OrderListViewModel> GetOrdersAsync(FilterViewModel filter);
-        Task<OrderDto?> GetOrderByIdAsync(int orderId);
-        Task<OrderDto?> GetOrderByNumberAsync(int orderNumber); // N8N API uses integer order numbers
-        Task<IEnumerable<OrderDto>> GetOrdersByCustomerAsync(int customerId);
+        Task<OrderViewModel?> GetOrderByNumberAsync(int orderNumber);
+        Task<IEnumerable<OrderViewModel>> GetOrdersByCustomerAsync(string customerName);
 
         // N8N API Integration
-        Task<IEnumerable<OrderDto>> GetOrdersFromN8NAsync();
-        Task<OrderDto?> SyncOrderFromN8NAsync(int orderNumber);
+        Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync();
+        Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
 
-        // CRUD Operations
-        Task<int> CreateOrderAsync(OrderDto orderDto);
-        Task<bool> UpdateOrderAsync(OrderDto orderDto);
-        Task<bool> DeleteOrderAsync(int orderId);
+        // Data Transformation
+        Task<IEnumerable<OrderViewModel>> TransformN8NDataAsync(IEnumerable<N8NOrderResponseDto> n8nData);
+        OrderViewModel TransformSingleOrder(N8NOrderResponseDto n8nOrder);
 
-        // Status Management
-        Task<bool> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus, string updatedBy, string? reason = null);
-        Task<bool> UpdatePaymentStatusAsync(int orderId, PaymentStatus newStatus, string updatedBy, string? paymentReference = null);
-
-        // Business Logic
-        Task<int> GenerateOrderNumberAsync(); // N8N API uses integer order numbers
-        Task<bool> CanCancelOrderAsync(int orderId);
-        Task<bool> CancelOrderAsync(int orderId, string cancelledBy, string reason);
-        Task<decimal> CalculateOrderTotalAsync(int orderId);
-
-        // Reporting
+        // Business Logic (Read-Only Operations)
+        Task<bool> ValidateOrderNumberAsync(int orderNumber);
         Task<OrderSummaryDto> GetOrderSummaryAsync(DateTime? startDate = null, DateTime? endDate = null);
+
+        // Reporting and Analytics
         Task<IEnumerable<OrderStatusCountDto>> GetOrderStatusCountsAsync();
         Task<IEnumerable<PaymentMethodSummaryDto>> GetPaymentMethodSummaryAsync();
+        Task<OrderSummaryDto> GetDashboardSummaryAsync();
 
-        // Search and Filter
-        Task<IEnumerable<OrderDto>> SearchOrdersAsync(string searchTerm);
-        Task<IEnumerable<string>> GetOrderNumberSuggestionsAsync(string partialOrderNumber);
+        // Search and Filter (Client-side processing)
+        Task<IEnumerable<OrderViewModel>> SearchOrdersAsync(string searchTerm);
+        Task<IEnumerable<int>> GetOrderNumberSuggestionsAsync(string partialOrderNumber);
     }
 
     // Supporting DTOs
     public class OrderSummaryDto
     {
         public int TotalOrders { get; set; }
-        public decimal TotalRevenue { get; set; }
         public int PendingOrders { get; set; }
-        public int CompletedOrders { get; set; }
+        public int SuccessfulOrders { get; set; }
+        public int FailedOrders { get; set; }
+        public int RefundedOrders { get; set; }
         public int CancelledOrders { get; set; }
-        public decimal AverageOrderValue { get; set; }
     }
 
     public class OrderStatusCountDto
     {
-        public OrderStatus Status { get; set; }
+        public PaymentStatus Status { get; set; }
         public int Count { get; set; }
         public string DisplayName { get; set; } = string.Empty;
     }
@@ -74,72 +65,91 @@ namespace DoDoManBackOffice.Services.Interfaces
     {
         public string PaymentMethod { get; set; } = string.Empty;
         public int Count { get; set; }
-        public decimal TotalAmount { get; set; }
         public decimal Percentage { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
     }
 }
 ```
 
-**Services/Interfaces/IN8NIntegrationService.cs**
+**Services/Interfaces/ICacheService.cs**
 ```csharp
-using DoDoManBackOffice.Models.Entities;
+namespace DoDoManBackOffice.Services.Interfaces
+{
+    public interface ICacheService
+    {
+        Task<T?> GetAsync<T>(string key) where T : class;
+        Task SetAsync<T>(string key, T value, TimeSpan? expiration = null) where T : class;
+        Task RemoveAsync(string key);
+        Task RemoveByPatternAsync(string pattern);
+        Task<bool> ExistsAsync(string key);
+    }
+}
+```
+
+**Services/Interfaces/IReportingService.cs**
+```csharp
+using DoDoManBackOffice.Models.DTOs;
+using DoDoManBackOffice.Models.ViewModels;
 
 namespace DoDoManBackOffice.Services.Interfaces
 {
-    public interface IN8NIntegrationService
+    public interface IReportingService
     {
-        // Webhook Methods
-        Task<bool> SendOrderStatusUpdateAsync(Order order);
-        Task<bool> SendPaymentNotificationAsync(Order order);
-        Task<bool> SendCustomerNotificationAsync(int customerId, string notificationType, object data);
+        // Dashboard Analytics
+        Task<DashboardSummaryDto> GetDashboardSummaryAsync();
+        Task<IEnumerable<PaymentMethodSummaryDto>> GetPaymentMethodBreakdownAsync();
+        Task<IEnumerable<DailyOrderCountDto>> GetDailyOrderTrendsAsync(DateTime startDate, DateTime endDate);
 
-        // Workflow Triggers
-        Task<bool> TriggerOrderProcessingWorkflowAsync(int orderId);
-        Task<bool> TriggerPaymentProcessingWorkflowAsync(int orderId, string paymentMethod);
-        Task<bool> TriggerOrderCancellationWorkflowAsync(int orderId, string reason);
+        // Order Reports
+        Task<OrderReportDto> GenerateOrderReportAsync(DateTime? startDate, DateTime? endDate);
+        Task<byte[]> ExportOrdersToExcelAsync(FilterViewModel filter);
+        Task<byte[]> ExportOrdersToPdfAsync(FilterViewModel filter);
 
-        // Data Synchronization
-        Task<bool> SyncOrderDataAsync(int orderId);
-        Task<bool> SyncCustomerDataAsync(int customerId);
-        Task<bool> BulkSyncOrdersAsync(IEnumerable<int> orderIds);
-
-        // Webhook Validation
-        bool ValidateWebhookSignature(string payload, string signature);
-        Task<bool> TestConnectionAsync();
-
-        // Analytics and Reporting
-        Task<bool> SendDailyReportAsync(DateTime reportDate);
-        Task<bool> SendWeeklyReportAsync(DateTime weekStartDate);
+        // Analytics
+        Task<IEnumerable<OrderStatusCountDto>> GetOrderStatusDistributionAsync();
+        Task<CustomerAnalyticsDto> GetCustomerAnalyticsAsync();
     }
 
-    // N8N Request/Response Models
-    public class N8NOrderStatusRequest
+    // Reporting DTOs
+    public class DashboardSummaryDto
     {
-        public int OrderId { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
-        public string OldStatus { get; set; } = string.Empty;
-        public string NewStatus { get; set; } = string.Empty;
-        public DateTime UpdatedAt { get; set; }
-        public string UpdatedBy { get; set; } = string.Empty;
+        public int TotalOrders { get; set; }
+        public int TodayOrders { get; set; }
+        public int PendingOrders { get; set; }
+        public int SuccessfulOrders { get; set; }
+        public decimal SuccessRate { get; set; }
+        public IEnumerable<PaymentMethodSummaryDto> PaymentMethods { get; set; } = new List<PaymentMethodSummaryDto>();
+        public IEnumerable<DailyOrderCountDto> RecentTrends { get; set; } = new List<DailyOrderCountDto>();
     }
 
-    public class N8NPaymentNotificationRequest
+    public class DailyOrderCountDto
     {
-        public int OrderId { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
-        public string PaymentMethod { get; set; } = string.Empty;
-        public string PaymentStatus { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
-        public string? PaymentReference { get; set; }
-        public DateTime ProcessedAt { get; set; }
+        public DateTime Date { get; set; }
+        public int Count { get; set; }
+        public int SuccessfulCount { get; set; }
     }
 
-    public class N8NResponse
+    public class OrderReportDto
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string? WorkflowId { get; set; }
-        public DateTime Timestamp { get; set; }
+        public DateTime GeneratedAt { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public int TotalOrders { get; set; }
+        public IEnumerable<OrderViewModel> Orders { get; set; } = new List<OrderViewModel>();
+        public OrderSummaryDto Summary { get; set; } = new();
+    }
+
+    public class CustomerAnalyticsDto
+    {
+        public int TotalCustomers { get; set; }
+        public int NewCustomersThisMonth { get; set; }
+        public IEnumerable<TopCustomerDto> TopCustomers { get; set; } = new List<TopCustomerDto>();
+    }
+
+    public class TopCustomerDto
+    {
+        public string CustomerName { get; set; } = string.Empty;
+        public int OrderCount { get; set; }
     }
 }
 ```
@@ -148,33 +158,25 @@ namespace DoDoManBackOffice.Services.Interfaces
 
 **Services/Implementations/OrderService.cs**
 ```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
-using DoDoManBackOffice.Data;
-using DoDoManBackOffice.Models.Entities;
 using DoDoManBackOffice.Models.ViewModels;
 using DoDoManBackOffice.Models.DTOs;
 using DoDoManBackOffice.Services.Interfaces;
-using DoDoManBackOffice.Configuration;
 
 namespace DoDoManBackOffice.Services.Implementations
 {
     public class OrderService : IOrderService
     {
-        private readonly ApplicationDbContext _context;
-        private readonly AppSettings _appSettings;
-        private readonly IN8NIntegrationService _n8nService;
+        private readonly IN8NApiService _n8nApiService;
+        private readonly ICacheService _cacheService;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService(
-            ApplicationDbContext context,
-            IOptions<AppSettings> appSettings,
-            IN8NIntegrationService n8nService,
+            IN8NApiService n8nApiService,
+            ICacheService cacheService,
             ILogger<OrderService> logger)
         {
-            _context = context;
-            _appSettings = appSettings.Value;
-            _n8nService = n8nService;
+            _n8nApiService = n8nApiService;
+            _cacheService = cacheService;
             _logger = logger;
         }
 
@@ -182,42 +184,50 @@ namespace DoDoManBackOffice.Services.Implementations
         {
             try
             {
-                var query = _context.Orders
-                    .Include(o => o.Customer)
-                    .AsQueryable();
+                _logger.LogInformation("Fetching orders with filter: {@Filter}", filter);
 
-                // Apply filters
-                query = ApplyFilters(query, filter);
+                // Get cached data first
+                var cacheKey = $"orders_{DateTime.Now:yyyy-MM-dd-HH}";
+                var cachedOrders = await _cacheService.GetAsync<List<N8NOrderResponseDto>>(cacheKey);
 
-                // Get total count for pagination
-                var totalCount = await query.CountAsync();
+                List<N8NOrderResponseDto> n8nOrders;
+                if (cachedOrders != null)
+                {
+                    n8nOrders = cachedOrders;
+                }
+                else
+                {
+                    // Fetch from N8N API with filters
+                    n8nOrders = (await _n8nApiService.GetOrdersAsync(
+                        filter.StartDate,
+                        filter.EndDate,
+                        filter.OrderNumber,
+                        filter.CustomerName,
+                        filter.PaymentMethod,
+                        filter.PaymentStatus
+                    )).ToList();
+
+                    // Cache for 30 minutes
+                    await _cacheService.SetAsync(cacheKey, n8nOrders, TimeSpan.FromMinutes(30));
+                }
+
+                // Transform to ViewModels
+                var orderViewModels = await TransformN8NDataAsync(n8nOrders);
+                var ordersArray = orderViewModels.ToArray();
 
                 // Apply pagination
-                var orders = await query
-                    .OrderByDescending(o => o.OrderDate)
+                var totalCount = ordersArray.Length;
+                var paginatedOrders = ordersArray
                     .Skip((filter.Page - 1) * filter.PageSize)
                     .Take(filter.PageSize)
-                    .Select(o => new OrderViewModel
-                    {
-                        OrderId = o.OrderId,
-                        OrderNumber = o.OrderNumber,
-                        OrderDate = o.OrderDate,
-                        CustomerName = o.Customer.FullName,
-                        CustomerEmail = o.Customer.Email,
-                        PaymentMethod = o.PaymentMethod,
-                        PaymentStatus = o.PaymentStatus,
-                        OrderStatus = o.OrderStatus,
-                        TotalAmount = o.TotalAmount,
-                        Notes = o.Notes
-                    })
-                    .ToListAsync();
+                    .ToList();
 
-                // Calculate summary statistics
-                var summary = await CalculateSummaryAsync(query);
+                // Calculate summary
+                var summary = CalculateSummary(ordersArray);
 
                 return new OrderListViewModel
                 {
-                    Orders = orders,
+                    Orders = paginatedOrders,
                     Filter = filter,
                     Pagination = new PaginationViewModel
                     {
@@ -226,202 +236,95 @@ namespace DoDoManBackOffice.Services.Implementations
                         TotalItems = totalCount
                     },
                     TotalOrders = summary.TotalOrders,
-                    TotalRevenue = summary.TotalRevenue,
                     PendingOrders = summary.PendingOrders,
-                    CompletedOrders = summary.CompletedOrders
+                    SuccessfulOrders = summary.SuccessfulOrders
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving orders with filter");
+                _logger.LogError(ex, "Error retrieving orders from N8N API");
                 throw;
             }
         }
 
-        public async Task<OrderDto?> GetOrderByIdAsync(int orderId)
+        public async Task<OrderViewModel?> GetOrderByNumberAsync(int orderNumber)
         {
             try
             {
-                var order = await _context.Orders
-                    .Include(o => o.Customer)
-                    .Include(o => o.OrderItems)
-                    .FirstOrDefaultAsync(o => o.OrderId == orderId);
+                var orders = await GetOrdersFromN8NAsync();
+                var order = orders.FirstOrDefault(o => o.OrderNumber == orderNumber);
 
-                if (order == null)
-                    return null;
-
-                return MapToOrderDto(order);
+                return order != null ? TransformSingleOrder(order) : null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving order {OrderId}", orderId);
+                _logger.LogError(ex, "Error retrieving order {OrderNumber}", orderNumber);
                 throw;
             }
         }
 
-        public async Task<string> GenerateOrderNumberAsync()
+        public async Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync()
         {
             try
             {
-                var year = DateTime.Now.Year;
-                var prefix = $"DDM{year}";
-
-                var lastOrder = await _context.Orders
-                    .Where(o => o.OrderNumber.StartsWith(prefix))
-                    .OrderByDescending(o => o.OrderNumber)
-                    .FirstOrDefaultAsync();
-
-                if (lastOrder == null)
-                {
-                    return $"{prefix}001";
-                }
-
-                var lastNumberStr = lastOrder.OrderNumber.Substring(prefix.Length);
-                if (int.TryParse(lastNumberStr, out int lastNumber))
-                {
-                    return $"{prefix}{(lastNumber + 1):D3}";
-                }
-
-                return $"{prefix}001";
+                return await _n8nApiService.GetOrdersAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating order number");
+                _logger.LogError(ex, "Error fetching orders from N8N API");
                 throw;
             }
         }
 
-        public async Task<bool> UpdateOrderStatusAsync(int orderId, OrderStatus newStatus, string updatedBy, string? reason = null)
+        public async Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
         {
             try
             {
-                var order = await _context.Orders.FindAsync(orderId);
-                if (order == null)
-                    return false;
-
-                var oldStatus = order.OrderStatus;
-                order.OrderStatus = newStatus;
-                order.UpdatedAt = DateTime.UtcNow;
-                order.UpdatedBy = updatedBy;
-
-                // Add status history
-                var history = new OrderStatusHistory
-                {
-                    OrderId = orderId,
-                    FromStatus = oldStatus,
-                    ToStatus = newStatus,
-                    ChangedAt = DateTime.UtcNow,
-                    ChangedBy = updatedBy,
-                    Reason = reason
-                };
-
-                _context.OrderStatusHistories.Add(history);
-
-                await _context.SaveChangesAsync();
-
-                // Trigger N8N workflow
-                await _n8nService.SendOrderStatusUpdateAsync(order);
-
-                _logger.LogInformation("Order {OrderId} status updated from {OldStatus} to {NewStatus} by {UpdatedBy}",
-                    orderId, oldStatus, newStatus, updatedBy);
-
-                return true;
+                return await _n8nApiService.GetOrdersAsync(startDate, endDate, orderNumber, customerName, paymentMethod, paymentStatus);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating order status for order {OrderId}", orderId);
+                _logger.LogError(ex, "Error fetching filtered orders from N8N API");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<OrderViewModel>> TransformN8NDataAsync(IEnumerable<N8NOrderResponseDto> n8nData)
+        {
+            return await Task.FromResult(n8nData.Select(TransformSingleOrder));
+        }
+
+        public OrderViewModel TransformSingleOrder(N8NOrderResponseDto n8nOrder)
+        {
+            return OrderViewModel.FromN8NDto(n8nOrder);
+        }
+
+        public async Task<bool> ValidateOrderNumberAsync(int orderNumber)
+        {
+            try
+            {
+                var order = await GetOrderByNumberAsync(orderNumber);
+                return order != null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, \"Error validating order number {OrderNumber}\", orderNumber);
                 return false;
             }
         }
 
-        public async Task<bool> UpdatePaymentStatusAsync(int orderId, PaymentStatus newStatus, string updatedBy, string? paymentReference = null)
+        public async Task<IEnumerable<OrderViewModel>> GetOrdersByCustomerAsync(string customerName)
         {
             try
             {
-                var order = await _context.Orders.FindAsync(orderId);
-                if (order == null)
-                    return false;
-
-                order.PaymentStatus = newStatus;
-                order.UpdatedAt = DateTime.UtcNow;
-                order.UpdatedBy = updatedBy;
-
-                if (!string.IsNullOrEmpty(paymentReference))
-                    order.PaymentReference = paymentReference;
-
-                await _context.SaveChangesAsync();
-
-                // Trigger N8N workflow
-                await _n8nService.SendPaymentNotificationAsync(order);
-
-                _logger.LogInformation("Order {OrderId} payment status updated to {PaymentStatus} by {UpdatedBy}",
-                    orderId, newStatus, updatedBy);
-
-                return true;
+                var orders = await GetOrdersFromN8NAsync();
+                var customerOrders = orders.Where(o => o.CustomerName.Contains(customerName, StringComparison.OrdinalIgnoreCase));
+                return await TransformN8NDataAsync(customerOrders);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating payment status for order {OrderId}", orderId);
-                return false;
-            }
-        }
-
-        public async Task<bool> CanCancelOrderAsync(int orderId)
-        {
-            var order = await _context.Orders.FindAsync(orderId);
-            if (order == null)
-                return false;
-
-            // Business rules for cancellation
-            return order.OrderStatus == OrderStatus.Pending ||
-                   order.OrderStatus == OrderStatus.Confirmed;
-        }
-
-        public async Task<bool> CancelOrderAsync(int orderId, string cancelledBy, string reason)
-        {
-            try
-            {
-                if (!await CanCancelOrderAsync(orderId))
-                    return false;
-
-                var order = await _context.Orders.FindAsync(orderId);
-                if (order == null)
-                    return false;
-
-                var oldStatus = order.OrderStatus;
-                order.OrderStatus = OrderStatus.Cancelled;
-                order.PaymentStatus = PaymentStatus.Cancelled;
-                order.UpdatedAt = DateTime.UtcNow;
-                order.UpdatedBy = cancelledBy;
-                order.Notes = $"Cancelled: {reason}";
-
-                // Add status history
-                var history = new OrderStatusHistory
-                {
-                    OrderId = orderId,
-                    FromStatus = oldStatus,
-                    ToStatus = OrderStatus.Cancelled,
-                    ChangedAt = DateTime.UtcNow,
-                    ChangedBy = cancelledBy,
-                    Reason = reason
-                };
-
-                _context.OrderStatusHistories.Add(history);
-
-                await _context.SaveChangesAsync();
-
-                // Trigger N8N cancellation workflow
-                await _n8nService.TriggerOrderCancellationWorkflowAsync(orderId, reason);
-
-                _logger.LogInformation("Order {OrderId} cancelled by {CancelledBy}. Reason: {Reason}",
-                    orderId, cancelledBy, reason);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error cancelling order {OrderId}", orderId);
-                return false;
+                _logger.LogError(ex, \"Error retrieving orders for customer {CustomerName}\", customerName);
+                return new List<OrderViewModel>();
             }
         }
 
@@ -429,240 +332,270 @@ namespace DoDoManBackOffice.Services.Implementations
         {
             try
             {
-                var query = _context.Orders.AsQueryable();
+                var orders = await GetOrdersFromN8NAsync(startDate, endDate, null, null, null, null);
+                var orderViewModels = await TransformN8NDataAsync(orders);
 
-                if (startDate.HasValue)
-                    query = query.Where(o => o.OrderDate >= startDate.Value);
-
-                if (endDate.HasValue)
-                    query = query.Where(o => o.OrderDate <= endDate.Value);
-
-                var summary = await query
-                    .GroupBy(o => 1)
-                    .Select(g => new OrderSummaryDto
-                    {
-                        TotalOrders = g.Count(),
-                        TotalRevenue = g.Sum(o => o.TotalAmount),
-                        PendingOrders = g.Count(o => o.OrderStatus == OrderStatus.Pending),
-                        CompletedOrders = g.Count(o => o.OrderStatus == OrderStatus.Completed),
-                        CancelledOrders = g.Count(o => o.OrderStatus == OrderStatus.Cancelled),
-                        AverageOrderValue = g.Average(o => o.TotalAmount)
-                    })
-                    .FirstOrDefaultAsync();
-
-                return summary ?? new OrderSummaryDto();
+                return CalculateSummary(orderViewModels);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calculating order summary");
-                throw;
+                _logger.LogError(ex, \"Error calculating order summary\");
+                return new OrderSummaryDto();
             }
         }
 
-        public async Task<IEnumerable<string>> GetOrderNumberSuggestionsAsync(string partialOrderNumber)
+        public async Task<IEnumerable<OrderStatusCountDto>> GetOrderStatusCountsAsync()
         {
             try
             {
-                return await _context.Orders
-                    .Where(o => o.OrderNumber.Contains(partialOrderNumber))
-                    .Select(o => o.OrderNumber)
-                    .Take(10)
-                    .ToListAsync();
+                var orders = await GetOrdersFromN8NAsync();
+                var orderViewModels = await TransformN8NDataAsync(orders);
+
+                var counts = orderViewModels
+                    .GroupBy(o => o.PaymentStatus)
+                    .Select(g => new OrderStatusCountDto
+                    {
+                        Status = g.Key,
+                        Count = g.Count(),
+                        DisplayName = GetStatusDisplayName(g.Key)
+                    });
+
+                return counts;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, \"Error getting order status counts\");
+                return new List<OrderStatusCountDto>();
+            }
+        }
+
+        public async Task<IEnumerable<int>> GetOrderNumberSuggestionsAsync(string partialOrderNumber)
+        {
+            try
+            {
+                var orders = await GetOrdersFromN8NAsync();
+
+                if (int.TryParse(partialOrderNumber, out int partialNumber))
+                {
+                    return orders
+                        .Where(o => o.OrderNumber.ToString().Contains(partialOrderNumber))
+                        .Select(o => o.OrderNumber)
+                        .Take(10)
+                        .ToList();
+                }
+
+                return new List<int>();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting order number suggestions");
-                return new List<string>();
+                return new List<int>();
+            }
+        }
+
+        public async Task<IEnumerable<PaymentMethodSummaryDto>> GetPaymentMethodSummaryAsync()
+        {
+            try
+            {
+                var orders = await GetOrdersFromN8NAsync();
+                var orderViewModels = await TransformN8NDataAsync(orders);
+                var totalOrders = orderViewModels.Count();
+
+                var summary = orderViewModels
+                    .GroupBy(o => o.PaymentMethod)
+                    .Select(g => new PaymentMethodSummaryDto
+                    {
+                        PaymentMethod = g.Key,
+                        Count = g.Count(),
+                        Percentage = totalOrders > 0 ? (decimal)g.Count() / totalOrders * 100 : 0,
+                        DisplayName = g.Key
+                    })
+                    .ToList();
+
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting payment method summary");
+                return new List<PaymentMethodSummaryDto>();
+            }
+        }
+
+        public async Task<OrderSummaryDto> GetDashboardSummaryAsync()
+        {
+            try
+            {
+                var orders = await GetOrdersFromN8NAsync();
+                var orderViewModels = await TransformN8NDataAsync(orders);
+
+                return CalculateSummary(orderViewModels);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting dashboard summary");
+                return new OrderSummaryDto();
+            }
+        }
+
+        public async Task<IEnumerable<OrderViewModel>> SearchOrdersAsync(string searchTerm)
+        {
+            try
+            {
+                var orders = await GetOrdersFromN8NAsync();
+                var orderViewModels = await TransformN8NDataAsync(orders);
+
+                var searchResults = orderViewModels.Where(o =>
+                    o.OrderNumber.ToString().Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    o.CustomerName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                    .Take(50);
+
+                return searchResults;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching orders");
+                return new List<OrderViewModel>();
             }
         }
 
         #region Private Helper Methods
 
-        private IQueryable<Order> ApplyFilters(IQueryable<Order> query, FilterViewModel filter)
+        private OrderSummaryDto CalculateSummary(IEnumerable<OrderViewModel> orders)
         {
-            if (filter.StartDate.HasValue)
-                query = query.Where(o => o.OrderDate >= filter.StartDate.Value);
+            var ordersList = orders.ToList();
 
-            if (filter.EndDate.HasValue)
-                query = query.Where(o => o.OrderDate <= filter.EndDate.Value.AddDays(1));
-
-            if (!string.IsNullOrEmpty(filter.OrderNumber))
-                query = query.Where(o => o.OrderNumber.Contains(filter.OrderNumber));
-
-            if (!string.IsNullOrEmpty(filter.CustomerName))
-                query = query.Where(o => (o.Customer.FirstName + " " + o.Customer.LastName).Contains(filter.CustomerName));
-
-            if (!string.IsNullOrEmpty(filter.PaymentMethod))
-                query = query.Where(o => o.PaymentMethod == filter.PaymentMethod);
-
-            if (filter.PaymentStatus.HasValue)
-                query = query.Where(o => o.PaymentStatus == filter.PaymentStatus.Value);
-
-            if (filter.OrderStatus.HasValue)
-                query = query.Where(o => o.OrderStatus == filter.OrderStatus.Value);
-
-            return query;
-        }
-
-        private async Task<OrderSummaryDto> CalculateSummaryAsync(IQueryable<Order> query)
-        {
-            return await query
-                .GroupBy(o => 1)
-                .Select(g => new OrderSummaryDto
-                {
-                    TotalOrders = g.Count(),
-                    TotalRevenue = g.Sum(o => o.TotalAmount),
-                    PendingOrders = g.Count(o => o.OrderStatus == OrderStatus.Pending),
-                    CompletedOrders = g.Count(o => o.OrderStatus == OrderStatus.Completed)
-                })
-                .FirstOrDefaultAsync() ?? new OrderSummaryDto();
-        }
-
-        private OrderDto MapToOrderDto(Order order)
-        {
-            return new OrderDto
+            return new OrderSummaryDto
             {
-                OrderId = order.OrderId,
-                OrderNumber = order.OrderNumber,
-                OrderDate = order.OrderDate,
-                CustomerName = order.Customer.FullName,
-                CustomerEmail = order.Customer.Email,
-                TotalAmount = order.TotalAmount,
-                PaymentMethod = order.PaymentMethod,
-                PaymentStatus = order.PaymentStatus,
-                OrderStatus = order.OrderStatus,
-                Notes = order.Notes,
-                CreatedAt = order.CreatedAt,
-                UpdatedAt = order.UpdatedAt,
-                OrderItems = order.OrderItems.Select(oi => new OrderItemDto
-                {
-                    OrderItemId = oi.OrderItemId,
-                    ProductName = oi.ProductName,
-                    ProductType = oi.ProductType,
-                    Quantity = oi.Quantity,
-                    UnitPrice = oi.UnitPrice,
-                    TotalPrice = oi.TotalPrice,
-                    Description = oi.Description
-                }).ToList()
+                TotalOrders = ordersList.Count,
+                PendingOrders = ordersList.Count(o => o.PaymentStatus == PaymentStatus.Pending),
+                SuccessfulOrders = ordersList.Count(o => o.PaymentStatus == PaymentStatus.Success),
+                FailedOrders = ordersList.Count(o => o.PaymentStatus == PaymentStatus.Failed),
+                RefundedOrders = ordersList.Count(o => o.PaymentStatus == PaymentStatus.Refunded),
+                CancelledOrders = ordersList.Count(o => o.PaymentStatus == PaymentStatus.Cancelled)
+            };
+        }
+
+        private string GetStatusDisplayName(PaymentStatus status)
+        {
+            return status switch
+            {
+                PaymentStatus.Pending => "待付款",
+                PaymentStatus.Success => "已付款",
+                PaymentStatus.Failed => "付款失敗",
+                PaymentStatus.Refunded => "已退款",
+                PaymentStatus.Cancelled => "已取消",
+                _ => "未知"
             };
         }
 
         #endregion
+    }
+}
+```
 
-        // Additional interface methods implementation...
-        public async Task<OrderDto?> GetOrderByNumberAsync(string orderNumber)
+### Step 3.3: Cache Service Implementation
+
+**Services/Implementations/CacheService.cs**
+```csharp
+using Microsoft.Extensions.Caching.Memory;
+using DoDoManBackOffice.Services.Interfaces;
+
+namespace DoDoManBackOffice.Services.Implementations
+{
+    public class CacheService : ICacheService
+    {
+        private readonly IMemoryCache _memoryCache;
+        private readonly ILogger<CacheService> _logger;
+
+        public CacheService(IMemoryCache memoryCache, ILogger<CacheService> logger)
         {
-            var order = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderItems)
-                .FirstOrDefaultAsync(o => o.OrderNumber == orderNumber);
-
-            return order != null ? MapToOrderDto(order) : null;
+            _memoryCache = memoryCache;
+            _logger = logger;
         }
 
-        public async Task<IEnumerable<OrderDto>> GetOrdersByCustomerAsync(int customerId)
+        public async Task<T?> GetAsync<T>(string key) where T : class
         {
-            var orders = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderItems)
-                .Where(o => o.CustomerId == customerId)
-                .ToListAsync();
-
-            return orders.Select(MapToOrderDto);
-        }
-
-        public async Task<int> CreateOrderAsync(OrderDto orderDto)
-        {
-            // Implementation for creating orders
-            throw new NotImplementedException("To be implemented based on business requirements");
-        }
-
-        public async Task<bool> UpdateOrderAsync(OrderDto orderDto)
-        {
-            // Implementation for updating orders
-            throw new NotImplementedException("To be implemented based on business requirements");
-        }
-
-        public async Task<bool> DeleteOrderAsync(int orderId)
-        {
-            // Implementation for deleting orders (soft delete recommended)
-            throw new NotImplementedException("To be implemented based on business requirements");
-        }
-
-        public async Task<decimal> CalculateOrderTotalAsync(int orderId)
-        {
-            var total = await _context.OrderItems
-                .Where(oi => oi.OrderId == orderId)
-                .SumAsync(oi => oi.TotalPrice);
-
-            return total;
-        }
-
-        public async Task<IEnumerable<OrderStatusCountDto>> GetOrderStatusCountsAsync()
-        {
-            var counts = await _context.Orders
-                .GroupBy(o => o.OrderStatus)
-                .Select(g => new OrderStatusCountDto
-                {
-                    Status = g.Key,
-                    Count = g.Count(),
-                    DisplayName = GetStatusDisplayName(g.Key)
-                })
-                .ToListAsync();
-
-            return counts;
-        }
-
-        public async Task<IEnumerable<PaymentMethodSummaryDto>> GetPaymentMethodSummaryAsync()
-        {
-            var totalAmount = await _context.Orders.SumAsync(o => o.TotalAmount);
-
-            var summary = await _context.Orders
-                .GroupBy(o => o.PaymentMethod)
-                .Select(g => new PaymentMethodSummaryDto
-                {
-                    PaymentMethod = g.Key,
-                    Count = g.Count(),
-                    TotalAmount = g.Sum(o => o.TotalAmount),
-                    Percentage = totalAmount > 0 ? (g.Sum(o => o.TotalAmount) / totalAmount) * 100 : 0
-                })
-                .ToListAsync();
-
-            return summary;
-        }
-
-        public async Task<IEnumerable<OrderDto>> SearchOrdersAsync(string searchTerm)
-        {
-            var orders = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderItems)
-                .Where(o => o.OrderNumber.Contains(searchTerm) ||
-                           o.Customer.FirstName.Contains(searchTerm) ||
-                           o.Customer.LastName.Contains(searchTerm) ||
-                           o.Customer.Email.Contains(searchTerm))
-                .Take(50)
-                .ToListAsync();
-
-            return orders.Select(MapToOrderDto);
-        }
-
-        private string GetStatusDisplayName(OrderStatus status)
-        {
-            return status switch
+            try
             {
-                OrderStatus.Pending => "待處理",
-                OrderStatus.Confirmed => "已確認",
-                OrderStatus.InProgress => "進行中",
-                OrderStatus.Completed => "已完成",
-                OrderStatus.Cancelled => "已取消",
-                _ => "未知"
-            };
+                if (_memoryCache.TryGetValue(key, out T? cachedValue))
+                {
+                    _logger.LogDebug("Cache hit for key: {Key}", key);
+                    return cachedValue;
+                }
+
+                _logger.LogDebug("Cache miss for key: {Key}", key);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting cached value for key: {Key}", key);
+                return null;
+            }
+        }
+
+        public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null) where T : class
+        {
+            try
+            {
+                var options = new MemoryCacheEntryOptions();
+
+                if (expiration.HasValue)
+                {
+                    options.AbsoluteExpirationRelativeToNow = expiration.Value;
+                }
+                else
+                {
+                    // Default expiration: 30 minutes
+                    options.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
+                }
+
+                _memoryCache.Set(key, value, options);
+                _logger.LogDebug("Cached value for key: {Key}, Expiration: {Expiration}", key, expiration);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting cached value for key: {Key}", key);
+            }
+        }
+
+        public async Task RemoveAsync(string key)
+        {
+            try
+            {
+                _memoryCache.Remove(key);
+                _logger.LogDebug("Removed cache entry for key: {Key}", key);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing cached value for key: {Key}", key);
+            }
+        }
+
+        public async Task RemoveByPatternAsync(string pattern)
+        {
+            // Note: MemoryCache doesn't support pattern-based removal
+            // This would require a more sophisticated caching solution like Redis
+            _logger.LogWarning("Pattern-based cache removal not supported with MemoryCache: {Pattern}", pattern);
+            await Task.CompletedTask;
+        }
+
+        public async Task<bool> ExistsAsync(string key)
+        {
+            try
+            {
+                return _memoryCache.TryGetValue(key, out _);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking cache existence for key: {Key}", key);
+                return false;
+            }
         }
     }
 }
 ```
 
-### Step 3.3: Validation Services
+### Step 3.4: Validation Services
 
 **Services/Implementations/ValidationService.cs**
 ```csharp
@@ -687,8 +620,9 @@ namespace DoDoManBackOffice.Services.Implementations
                 .WithMessage("結束日期不能超過今天");
 
             RuleFor(x => x.OrderNumber)
-                .MaximumLength(20)
-                .WithMessage("訂單編號不能超過20個字元");
+                .GreaterThan(0)
+                .When(x => x.OrderNumber.HasValue)
+                .WithMessage("訂單編號必須大於0");
 
             RuleFor(x => x.CustomerName)
                 .MaximumLength(100)
@@ -701,13 +635,13 @@ namespace DoDoManBackOffice.Services.Implementations
         }
     }
 
-    public class OrderDtoValidator : AbstractValidator<OrderDto>
+    public class N8NOrderResponseValidator : AbstractValidator<N8NOrderResponseDto>
     {
-        public OrderDtoValidator()
+        public N8NOrderResponseValidator()
         {
             RuleFor(x => x.OrderNumber)
                 .GreaterThan(0)
-                .WithMessage("訂單編號必須大於0"); // N8N API uses integer order numbers
+                .WithMessage("訂單編號必須大於0");
 
             RuleFor(x => x.CustomerName)
                 .NotEmpty()
@@ -715,40 +649,101 @@ namespace DoDoManBackOffice.Services.Implementations
                 .MaximumLength(200)
                 .WithMessage("客戶姓名不能超過200個字元");
 
-            RuleFor(x => x.CustomerEmail)
+            RuleFor(x => x.OrderDate)
                 .NotEmpty()
-                .WithMessage("客戶Email不能為空")
-                .EmailAddress()
-                .WithMessage("Email格式不正確");
-
-            RuleFor(x => x.TotalAmount)
-                .GreaterThan(0)
-                .WithMessage("總金額必須大於0");
+                .WithMessage("訂單日期不能為空");
 
             RuleFor(x => x.PaymentMethod)
                 .NotEmpty()
                 .WithMessage("支付方式不能為空")
                 .Must(BeValidPaymentMethod)
                 .WithMessage("不支援的支付方式");
+
+            RuleFor(x => x.PaymentStatus)
+                .NotEmpty()
+                .WithMessage("支付狀態不能為空")
+                .Must(BeValidPaymentStatus)
+                .WithMessage("不支援的支付狀態");
         }
 
         private bool BeValidPaymentMethod(string paymentMethod)
         {
-            var validMethods = new[] { "CreditCard", "BankTransfer", "PayPal", "LinePay" };
-            return validMethods.Contains(paymentMethod);
+            var validMethods = new[] { "credit card", "bank transfer", "paypal", "line pay" };
+            return validMethods.Contains(paymentMethod?.ToLower());
+        }
+
+        private bool BeValidPaymentStatus(string paymentStatus)
+        {
+            var validStatuses = new[] { "pending", "success", "failed", "refunded", "cancelled" };
+            return validStatuses.Contains(paymentStatus?.ToLower());
         }
     }
 }
 ```
 
+### Step 3.5: Service Registration
+
+**Program.cs** (Service Registration Section)
+```csharp
+// Register N8N API Service (already added in Step 2.5)
+builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(client =>
+{
+    var n8nSettings = builder.Configuration.GetSection("N8NSettings");
+    client.BaseAddress = new Uri(n8nSettings["BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(int.Parse(n8nSettings["Timeout"] ?? "30"));
+
+    var apiKey = n8nSettings["ApiKey"];
+    if (!string.IsNullOrEmpty(apiKey))
+    {
+        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+    }
+});
+
+// Register application services
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICacheService, CacheService>();
+builder.Services.AddScoped<IReportingService, ReportingService>();
+
+// Register memory caching
+builder.Services.AddMemoryCache();
+
+// Register validators
+builder.Services.AddScoped<IValidator<FilterViewModel>, FilterViewModelValidator>();
+builder.Services.AddScoped<IValidator<N8NOrderResponseDto>, N8NOrderResponseValidator>();
+```
+
 ## Verification Steps
-1. Build the service layer: `dotnet build`
-2. Run unit tests for services: `dotnet test`
-3. Verify dependency injection registration
-4. Test service methods with mock data
-5. Check logging output in development
+1. Configure N8N API settings in appsettings.json
+2. Test N8N API connectivity: `await _n8nApiService.GetOrdersAsync()`
+3. Verify service dependency injection registration
+4. Test caching functionality with sample data
+5. Validate data transformation from N8N DTOs to ViewModels
+6. Check logging output in development environment
+7. Build the service layer: `dotnet build`
+8. Run integration tests with mock N8N responses
+
+## Key Changes from Original Database Approach
+
+### Architecture Changes
+1. **Removed Entity Framework Dependencies**: No more `ApplicationDbContext`, `DbSet<Order>`, or database queries
+2. **N8N API Integration**: All data retrieval through HTTP client calls to N8N endpoints
+3. **In-Memory Processing**: Client-side filtering, sorting, and pagination of API data
+4. **Caching Layer**: Added `ICacheService` to cache N8N API responses and improve performance
+5. **Data Transformation**: Focus on transforming N8N API responses to application ViewModels
+
+### Service Method Changes
+1. **GetOrdersAsync()**: Now fetches from N8N API with client-side filtering
+2. **Order Numbers**: Changed from string to integer to match N8N API response format
+3. **No CRUD Operations**: Read-only operations since this is a reporting/admin interface
+4. **Status Management**: Simplified to focus on payment status from N8N data
+5. **Reporting**: Analytics calculated from in-memory N8N data instead of database aggregations
+
+### Performance Optimizations
+1. **Response Caching**: 30-minute cache for N8N API responses
+2. **Batch Processing**: Single API call for multiple operations where possible
+3. **Efficient Transformations**: LINQ-based data processing for filtering and calculations
 
 ## Next Steps
 After completing the service layer, proceed to:
 - 04-Controllers-API.md for MVC controllers and API endpoints
-- 05-N8N-Integration.md for N8N workflow integration
+- 05-Views-UI.md for Razor views and user interface implementation
