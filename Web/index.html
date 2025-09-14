@@ -16,10 +16,27 @@
                     <h1>DodoMan</h1>
                 </div>
                 <div class="nav-menu">
-                    <!-- <a href="#experiences" class="nav-link">體驗</a> -->
-                    <!-- <a href="#destinations" class="nav-link">目的地</a> -->
-                    <!-- <a href="#about" class="nav-link">關於我們</a> -->
-                    <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="app-btn" id="openAppBtn">打開 App</a> -->
+                   <a href="#experiences" class="nav-link" data-i18n="nav.experiences">體驗</a>
+                   <a href="#destinations" class="nav-link" data-i18n="nav.destinations">目的地</a>
+                   <a href="#about" class="nav-link" data-i18n="nav.about">關於我們</a>
+
+                   <!-- Language Selector -->
+                   <div class="language-selector">
+                       <button class="language-btn" id="languageBtn">
+                           <span id="currentLanguage" data-i18n="lang.zh-TW">繁體中文</span>
+                           <svg class="lang-arrow" width="12" height="12" viewBox="0 0 12 12">
+                               <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="2" fill="none"/>
+                           </svg>
+                       </button>
+                       <div class="language-dropdown" id="languageDropdown">
+                           <div class="lang-option active" data-lang="zh-TW">
+                               <span data-i18n="lang.zh-TW">繁體中文</span>
+                           </div>
+                           <div class="lang-option" data-lang="en">
+                               <span data-i18n="lang.en">English</span>
+                           </div>
+                       </div>
+                   </div>
                 </div>
                 <div class="mobile-menu-toggle" id="mobileMenuToggle">
                     <span></span>
@@ -31,37 +48,47 @@
     </header>
 
     <!-- Hero Section -->
-	<!--
     <section class="hero">
         <div class="hero-content">
             <div class="hero-text">
-                <h1 class="hero-title">探索世界的奇蹟</h1>
-                <p class="hero-subtitle">與我們一起踏上難忘的旅程，發現隱藏的寶石和經典景點</p>
+                <h1 class="hero-title" data-i18n="hero.title">探索世界的奇蹟</h1>
+                <p class="hero-subtitle" data-i18n="hero.subtitle">與我們一起踏上難忘的旅程，發現隱藏的寶石和經典景點</p>
                 <div class="hero-cta">
-                    <button class="cta-primary" id="heroDownloadBtn">立即下載 App</button>
-                    <button class="cta-secondary" onclick="scrollToSection('experiences')">瀏覽體驗</button>
+                    <button class="cta-primary" id="heroDownloadBtn" data-i18n="hero.downloadBtn">立即下載 App</button>
+                    <button class="cta-secondary" onclick="scrollToSection('experiences')" data-i18n="hero.browseBtn">瀏覽體驗</button>
                 </div>
             </div>
             <div class="hero-image">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/Schloss_Neuschwanstein_2013.jpg/1280px-Schloss_Neuschwanstein_2013.jpg" alt="美麗的山景" />
+                <div class="destination-carousel">
+                    <div class="carousel-container">
+                        <div class="carousel-track" id="carouselTrack">
+                            <!-- Destinations will be loaded dynamically -->
+                        </div>
+                    </div>
+                    <div class="carousel-controls">
+                        <button class="carousel-btn carousel-btn-prev" id="carouselPrev">‹</button>
+                        <button class="carousel-btn carousel-btn-next" id="carouselNext">›</button>
+                    </div>
+                    <div class="carousel-dots" id="carouselDots">
+                        <!-- Dots will be generated dynamically -->
+                    </div>
+                </div>
             </div>
         </div>
     </section>
-	-->
 
     <!-- Features Section -->
-	<!--
     <section class="features" id="experiences">
         <div class="container">
-            <h2 class="section-title">為什麼選擇 DodoMan？</h2>
+            <h2 class="section-title" data-i18n="features.title">為什麼選擇 DodoMan？</h2>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-image">
                         <img src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" alt="獨特體驗" />
                     </div>
                     <div class="feature-content">
-                        <h3>獨特體驗</h3>
-                        <p>精心策劃的旅遊體驗，讓您深度體驗當地文化和自然美景，創造難忘的回憶。</p>
+                        <h3 data-i18n="features.unique.title">獨特體驗</h3>
+                        <p data-i18n="features.unique.desc">精心策劃的旅遊體驗，讓您深度體驗當地文化和自然美景，創造難忘的回憶。</p>
                     </div>
                 </div>
                 <div class="feature-card">
@@ -69,8 +96,8 @@
                         <img src="https://images.unsplash.com/photo-1551632811-561732d1e306?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" alt="專業導遊" />
                     </div>
                     <div class="feature-content">
-                        <h3>專業導遊</h3>
-                        <p>經驗豐富的在地導遊，為您提供專業的解說和貼心的服務，確保旅程順利愉快。</p>
+                        <h3 data-i18n="features.guide.title">專業導遊</h3>
+                        <p data-i18n="features.guide.desc">經驗豐富的在地導遊，為您提供專業的解說和貼心的服務，確保旅程順利愉快。</p>
                     </div>
                 </div>
                 <div class="feature-card">
@@ -78,26 +105,25 @@
                         <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" alt="即時預訂" />
                     </div>
                     <div class="feature-content">
-                        <h3>即時預訂</h3>
-                        <p>隨時隨地透過手機 App 預訂行程，即時確認，讓您的旅行計劃更加彈性便利。</p>
+                        <h3 data-i18n="features.booking.title">即時預訂</h3>
+                        <p data-i18n="features.booking.desc">隨時隨地透過手機 App 預訂行程，即時確認，讓您的旅行計劃更加彈性便利。</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
-	-->
 
     <!-- Gallery Section -->
     <section class="gallery" id="destinations">
         <div class="container">
-            <h2 class="section-title">熱門目的地</h2>
+            <h2 class="section-title" data-i18n="gallery.title">熱門目的地</h2>
             <div class="gallery-grid">
                 <div class="gallery-item large featured fullwidth">
                     <img src="https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg" alt="新天鵝堡" />
                     <div class="gallery-overlay">
-                        <div class="featured-badge">主打推薦</div>
-                        <h3>新天鵝堡</h3>
-                        <p>德國最浪漫的童話城堡</p>
+                        <div class="featured-badge" data-i18n="gallery.neuschwanstein.badge">主打推薦</div>
+                        <h3 data-i18n="gallery.neuschwanstein.title">新天鵝堡</h3>
+                        <p data-i18n="gallery.neuschwanstein.desc">德國最浪漫的童話城堡</p>
                         <div class="price-tag">€21 起</div>
                         <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="gallery-cta primary">立即預訂</a> -->
                     </div>
@@ -105,9 +131,9 @@
                 <div class="gallery-item large featured fullwidth">
                     <img src="https://images.unsplash.com/photo-1547036967-23d11aacaee0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80" alt="烏菲茲美術館" />
                     <div class="gallery-overlay">
-                        <div class="featured-badge">藝術殿堂</div>
-                        <h3>烏菲茲美術館</h3>
-                        <p>義大利佛羅倫斯文藝復興藝術寶庫</p>
+                        <div class="featured-badge" data-i18n="gallery.uffizi.badge">藝術殿堂</div>
+                        <h3 data-i18n="gallery.uffizi.title">烏菲茲美術館</h3>
+                        <p data-i18n="gallery.uffizi.desc">義大利佛羅倫斯文藝復興藝術寶庫</p>
                         <div class="price-tag">€35.9 起</div>
                         <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="gallery-cta primary">立即預訂</a> -->
                     </div>
@@ -121,21 +147,16 @@
         <div class="container">
             <div class="app-content">
                 <div class="app-text">
-                    <h2>下載 DodoMan App</h2>
-                    <p>隨時隨地探索世界，享受獨家優惠和即時預訂服務</p>
+                    <h2 data-i18n="app.title">下載 DodoMan App</h2>
+                    <p data-i18n="app.subtitle">隨時隨地探索世界，享受獨家優惠和即時預訂服務</p>
                     <ul class="app-features">
-                        <li>✓ 獨家 App 優惠價格</li>
-                        <li>✓ 即時行程確認</li>
-                        <li>✓ 24/7 客服支援</li>
-                        <li>✓ 個人化推薦</li>
+                        <li data-i18n="app.feature1">✓ 獨家 App 優惠價格</li>
+                        <li data-i18n="app.feature2">✓ 即時行程確認</li>
+                        <li data-i18n="app.feature3">✓ 24/7 客服支援</li>
+                        <li data-i18n="app.feature4">✓ 個人化推薦</li>
                     </ul>
                     <div class="download-buttons">
-						<!--
-                        <a href="#" class="download-btn ios" id="iosDownload">
-                            <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on App Store" />
-                        </a>
-						-->
-                        <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="download-btn android" id="androidDownload">
+                        <a href="https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing" class="download-btn android" id="androidDownload">
                             <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" />
                         </a>
                     </div>
@@ -151,27 +172,27 @@
     <section class="about" id="about">
         <div class="container">
             <div class="about-content">
-                <h2 class="section-title">關於 DodoMan</h2>
-                <p class="about-text">
+                <h2 class="section-title" data-i18n="about.title">關於 DodoMan</h2>
+                <p class="about-text" data-i18n="about.desc">
                     DodoMan 致力於為旅行者提供最優質的旅遊體驗。我們相信每一次旅行都應該是獨特而難忘的，
                     因此我們精心策劃每一個行程，確保您能夠深度體驗當地文化、品嚐地道美食、欣賞壯麗景色。
                 </p>
                 <div class="stats">
                     <div class="stat-item">
                         <h3>50+</h3>
-                        <p>個國家</p>
+                        <p data-i18n="about.countries">個國家</p>
                     </div>
                     <div class="stat-item">
                         <h3>10萬+</h3>
-                        <p>滿意客戶</p>
+                        <p data-i18n="about.customers">滿意客戶</p>
                     </div>
                     <div class="stat-item">
                         <h3>500+</h3>
-                        <p>精選體驗</p>
+                        <p data-i18n="about.experiences">精選體驗</p>
                     </div>
                     <div class="stat-item">
                         <h3>4.9★</h3>
-                        <p>客戶評價</p>
+                        <p data-i18n="about.rating">客戶評價</p>
                     </div>
                 </div>
             </div>
@@ -184,7 +205,7 @@
             <div class="footer-content">
                 <div class="footer-section">
                     <h3>DodoMan</h3>
-                    <p>探索世界，創造回憶</p>
+                    <p data-i18n="footer.tagline">探索世界，創造回憶</p>
                     <div class="social-links">
                         <a href="#">Facebook</a>
                         <a href="#">Instagram</a>
@@ -192,35 +213,35 @@
                     </div>
                 </div>
                 <div class="footer-section">
-                    <h4>服務</h4>
+                    <h4 data-i18n="footer.services">服務</h4>
                     <ul>
-                        <li><a href="#">旅遊體驗</a></li>
-                        <li><a href="#">團體預訂</a></li>
-                        <li><a href="#">企業服務</a></li>
-                        <li><a href="#">客製化行程</a></li>
+                        <li><a href="#" data-i18n="footer.service1">旅遊體驗</a></li>
+                        <li><a href="#" data-i18n="footer.service2">團體預訂</a></li>
+                        <li><a href="#" data-i18n="footer.service3">企業服務</a></li>
+                        <li><a href="#" data-i18n="footer.service4">客製化行程</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h4>支援</h4>
+                    <h4 data-i18n="footer.support">支援</h4>
                     <ul>
-                        <li><a href="#">客服中心</a></li>
-                        <li><a href="#">預訂查詢</a></li>
-                        <li><a href="#">退改政策</a></li>
-                        <li><a href="#">常見問題</a></li>
+                        <li><a href="#" data-i18n="footer.support1">客服中心</a></li>
+                        <li><a href="#" data-i18n="footer.support2">預訂查詢</a></li>
+                        <li><a href="#" data-i18n="footer.support3">退改政策</a></li>
+                        <li><a href="#" data-i18n="footer.support4">常見問題</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
-                    <h4>公司</h4>
+                    <h4 data-i18n="footer.company">公司</h4>
                     <ul>
-                        <li><a href="#">關於我們</a></li>
-                        <li><a href="#">加入我們</a></li>
-                        <li><a href="#">隱私政策</a></li>
-                        <li><a href="#">服務條款</a></li>
+                        <li><a href="#" data-i18n="footer.company1">關於我們</a></li>
+                        <li><a href="#" data-i18n="footer.company2">加入我們</a></li>
+                        <li><a href="#" data-i18n="footer.company3">隱私政策</a></li>
+                        <li><a href="#" data-i18n="footer.company4">服務條款</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 DodoMan. 保留所有權利。</p>
+                <p data-i18n="footer.copyright">&copy; 2024 DodoMan. 保留所有權利。</p>
             </div>
         </div>
     </footer>
@@ -229,16 +250,16 @@
     <div class="modal" id="appModal">
         <div class="modal-content">
             <span class="modal-close" id="modalClose">&times;</span>
-            <h3>選擇您的平台</h3>
-            <p>為了獲得最佳體驗，請下載我們的官方 App</p>
+            <h3 data-i18n="modal.title">選擇您的平台</h3>
+            <p data-i18n="modal.desc">為了獲得最佳體驗，請下載我們的官方 App</p>
             <div class="modal-buttons">
-                <button class="modal-btn ios" id="modalIosBtn">iOS App Store</button>
-                <button class="modal-btn android" id="modalAndroidBtn">Google Play</button>
-                <button class="modal-btn web" id="modalWebBtn">繼續使用網頁版</button>
+                <button class="modal-btn android" id="modalAndroidBtn" data-i18n="modal.android">下載 Android App</button>
+                <button class="modal-btn web" id="modalWebBtn" data-i18n="modal.web">繼續使用網頁版</button>
             </div>
         </div>
     </div>
 
+    <script src="i18n.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
