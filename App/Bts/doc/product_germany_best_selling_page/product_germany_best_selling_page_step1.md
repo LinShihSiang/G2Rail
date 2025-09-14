@@ -139,7 +139,7 @@ Each tour package displays as a card containing:
 2. **Content Section**
    - **Package Name**: Large, bold text
    - **Description**: Up to 3 lines with ellipsis overflow
-   - **Price**: Prominent green text with EUR symbol (displays calculated sellPrice)
+   - **Price**: Always show the calculated sell price, formatted to two decimal places, with EUR symbol (e.g. `€12.34`).
    - **Navigation Arrow**: Indicates tap interaction
 
 ### Card Layout Structure
@@ -198,6 +198,7 @@ Card(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
+                    // Always use sellPrice, formatted to two decimals
                     '€${tour.sellPrice.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.green[700],
