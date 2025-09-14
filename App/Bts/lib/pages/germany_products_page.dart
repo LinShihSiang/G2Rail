@@ -59,7 +59,7 @@ class _GermanyProductsPageState extends State<GermanyProductsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Germany Best-Selling Tickets'),
+        title: const Text('Germany Popular Packages'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: FutureBuilder<List<GermanyTourPackage>>(

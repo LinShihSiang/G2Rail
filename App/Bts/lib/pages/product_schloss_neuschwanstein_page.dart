@@ -28,13 +28,27 @@ class ProductPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.grey[300],
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.image,
-                  size: 80,
-                  color: Colors.grey,
-                ),
-              ),
+              child: product.imageUrl.isNotEmpty
+                  ? Image.network(
+                      product.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.image,
+                            size: 80,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    )
+                  : const Center(
+                      child: Icon(
+                        Icons.image,
+                        size: 80,
+                        color: Colors.grey,
+                      ),
+                    ),
             ),
 
             Padding(
