@@ -1,77 +1,46 @@
-# 02. Database Models and Entity Framework
+# 02. Data Models and N8N API Integration
 
 ## Overview
-定義 DoDoMan 後台管理系統的資料庫結構、實體模型和 Entity Framework 配置。
+定義 DoDoMan 後台管理系統的資料模型、N8N API 整合和資料傳輸物件 (DTOs)。系統不使用本地資料庫，所有資料直接從 N8N API 取得。
 
 ## Implementation Steps
 
-### Step 2.1: Entity Models
+### Step 2.1: N8N API Response DTOs
 
-**Models/Entities/Order.cs**
+**Models/DTOs/N8NOrderResponseDto.cs**
 ```csharp
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
-namespace DoDoManBackOffice.Models.Entities
+namespace DoDoManBackOffice.Models.DTOs
 {
-    public class Order
+    public class N8NOrderResponseDto
     {
-        [Key]
-        public int OrderId { get; set; }
+        [JsonPropertyName("row_number")]
+        public int RowNumber { get; set; }
 
-        [Required]
-        public int OrderNumber { get; set; } // N8N API returns integer order number (訂單編號)
+        [JsonPropertyName("訂單編號")]
+        public int OrderNumber { get; set; }
 
-        [Required]
-        public DateTime OrderDate { get; set; }
+        [JsonPropertyName("訂單日期")]
+        public string OrderDate { get; set; } = string.Empty;
 
-        [Required]
-        public int CustomerId { get; set; }
+        [JsonPropertyName("客戶名稱")]
+        public string CustomerName { get; set; } = string.Empty;
 
-        [ForeignKey("CustomerId")]
-        public virtual Customer Customer { get; set; } = null!;
+        [JsonPropertyName("支付方式")]
+        public string PaymentMethod { get; set; } = string.Empty;
 
-        [Required]
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TotalAmount { get; set; }
-
-        [Required]
-        [StringLength(50)]
-        public string PaymentMethod { get; set; } = string.Empty; // CreditCard, BankTransfer
-
-        [Required]
-        public PaymentStatus PaymentStatus { get; set; }
-
-        [Required]
-        public OrderStatus OrderStatus { get; set; }
-
-        [StringLength(1000)]
-        public string? Notes { get; set; }
-
-        [StringLength(500)]
-        public string? PaymentReference { get; set; }
-
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-
-        [StringLength(100)]
-        public string CreatedBy { get; set; } = string.Empty;
-
-        [StringLength(100)]
-        public string? UpdatedBy { get; set; }
-
-        // Navigation Properties
-        public virtual ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
-        public virtual ICollection<OrderStatusHistory> StatusHistory { get; set; } = new List<OrderStatusHistory>();
+        [JsonPropertyName("支付狀態")]
+        public string PaymentStatus { get; set; } = string.Empty;
     }
 
     public enum PaymentStatus
     {
-        Pending = 0,      // 待付款
-        Paid = 1,         // 已付款
-        Failed = 2,       // 付款失敗
-        Refunded = 3,     // 已退款
-        Cancelled = 4     // 已取消
+        Pending = 0,      // pending
+        Success = 1,      // success
+        Failed = 2,       // failed
+        Refunded = 3,     // refunded
+        Cancelled = 4     // cancelled
     }
 
     public enum OrderStatus
@@ -85,212 +54,158 @@ namespace DoDoManBackOffice.Models.Entities
 }
 ```
 
-**Models/Entities/Customer.cs**
+### Step 2.2: N8N API Service Configuration
+
+**Services/N8NApiService.cs**
 ```csharp
-using System.ComponentModel.DataAnnotations;
+using DoDoManBackOffice.Models.DTOs;
+using System.Text.Json;
 
-namespace DoDoManBackOffice.Models.Entities
+namespace DoDoManBackOffice.Services
 {
-    public class Customer
+    public interface IN8NApiService
     {
-        [Key]
-        public int CustomerId { get; set; }
+        Task<List<N8NOrderResponseDto>> GetOrdersAsync();
+        Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
+    }
 
-        [Required]
-        [StringLength(100)]
-        public string FirstName { get; set; } = string.Empty;
+    public class N8NApiService : IN8NApiService
+    {
+        private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<N8NApiService> _logger;
 
-        [Required]
-        [StringLength(100)]
-        public string LastName { get; set; } = string.Empty;
+        public N8NApiService(HttpClient httpClient, IConfiguration configuration, ILogger<N8NApiService> logger)
+        {
+            _httpClient = httpClient;
+            _configuration = configuration;
+            _logger = logger;
+        }
 
-        [NotMapped]
-        public string FullName => $"{FirstName} {LastName}";
+        public async Task<List<N8NOrderResponseDto>> GetOrdersAsync()
+        {
+            try
+            {
+                var apiUrl = _configuration["N8NSettings:OrdersApiUrl"];
+                var response = await _httpClient.GetAsync(apiUrl);
+                response.EnsureSuccessStatusCode();
 
-        [Required]
-        [EmailAddress]
-        [StringLength(200)]
-        public string Email { get; set; } = string.Empty;
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var orders = JsonSerializer.Deserialize<List<N8NOrderResponseDto>>(jsonContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
 
-        [StringLength(20)]
-        public string? PhoneNumber { get; set; }
+                return orders ?? new List<N8NOrderResponseDto>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching orders from N8N API");
+                return new List<N8NOrderResponseDto>();
+            }
+        }
 
-        [StringLength(500)]
-        public string? Address { get; set; }
+        public async Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
+        {
+            var allOrders = await GetOrdersAsync();
 
-        [StringLength(100)]
-        public string? City { get; set; }
+            // Apply client-side filtering
+            var filteredOrders = allOrders.AsQueryable();
 
-        [StringLength(50)]
-        public string? Country { get; set; }
+            if (orderNumber.HasValue)
+            {
+                filteredOrders = filteredOrders.Where(o => o.OrderNumber == orderNumber.Value);
+            }
 
-        [StringLength(20)]
-        public string? PostalCode { get; set; }
+            if (!string.IsNullOrEmpty(customerName))
+            {
+                filteredOrders = filteredOrders.Where(o => o.CustomerName.Contains(customerName, StringComparison.OrdinalIgnoreCase));
+            }
 
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
+            if (!string.IsNullOrEmpty(paymentMethod))
+            {
+                filteredOrders = filteredOrders.Where(o => o.PaymentMethod.Equals(paymentMethod, StringComparison.OrdinalIgnoreCase));
+            }
 
-        public bool IsActive { get; set; } = true;
+            if (!string.IsNullOrEmpty(paymentStatus))
+            {
+                filteredOrders = filteredOrders.Where(o => o.PaymentStatus.Equals(paymentStatus, StringComparison.OrdinalIgnoreCase));
+            }
 
-        // Navigation Properties
-        public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
+            if (startDate.HasValue || endDate.HasValue)
+            {
+                filteredOrders = filteredOrders.Where(o =>
+                {
+                    if (DateTime.TryParse(o.OrderDate, out var orderDate))
+                    {
+                        if (startDate.HasValue && orderDate < startDate.Value) return false;
+                        if (endDate.HasValue && orderDate > endDate.Value) return false;
+                        return true;
+                    }
+                    return false;
+                });
+            }
+
+            return filteredOrders.ToList();
+        }
     }
 }
 ```
 
-**Models/Entities/OrderItem.cs**
-```csharp
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace DoDoManBackOffice.Models.Entities
-{
-    public class OrderItem
-    {
-        [Key]
-        public int OrderItemId { get; set; }
-
-        [Required]
-        public int OrderId { get; set; }
-
-        [ForeignKey("OrderId")]
-        public virtual Order Order { get; set; } = null!;
-
-        [Required]
-        [StringLength(200)]
-        public string ProductName { get; set; } = string.Empty;
-
-        [StringLength(50)]
-        public string? ProductType { get; set; } // Tour, Package, Service
-
-        [Required]
-        public int Quantity { get; set; }
-
-        [Required]
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal UnitPrice { get; set; }
-
-        [Required]
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TotalPrice { get; set; }
-
-        [StringLength(1000)]
-        public string? Description { get; set; }
-
-        public DateTime CreatedAt { get; set; }
-    }
-}
-```
-
-**Models/Entities/OrderStatusHistory.cs**
-```csharp
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
-namespace DoDoManBackOffice.Models.Entities
-{
-    public class OrderStatusHistory
-    {
-        [Key]
-        public int HistoryId { get; set; }
-
-        [Required]
-        public int OrderId { get; set; }
-
-        [ForeignKey("OrderId")]
-        public virtual Order Order { get; set; } = null!;
-
-        [Required]
-        public OrderStatus FromStatus { get; set; }
-
-        [Required]
-        public OrderStatus ToStatus { get; set; }
-
-        [Required]
-        public DateTime ChangedAt { get; set; }
-
-        [Required]
-        [StringLength(100)]
-        public string ChangedBy { get; set; } = string.Empty;
-
-        [StringLength(500)]
-        public string? Reason { get; set; }
-
-        [StringLength(1000)]
-        public string? Notes { get; set; }
-    }
-}
-```
-
-### Step 2.2: View Models
+### Step 2.3: View Models
 
 **Models/ViewModels/OrderViewModel.cs**
 ```csharp
 using System.ComponentModel.DataAnnotations;
-using DoDoManBackOffice.Models.Entities;
+using DoDoManBackOffice.Models.DTOs;
 
 namespace DoDoManBackOffice.Models.ViewModels
 {
     public class OrderViewModel
     {
-        public int OrderId { get; set; }
-
         [Display(Name = "訂單編號")]
-        public int OrderNumber { get; set; } // N8N API returns integer order number
+        public int OrderNumber { get; set; }
 
         [Display(Name = "訂單日期")]
         [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd HH:mm}")]
         public DateTime OrderDate { get; set; }
 
         [Display(Name = "客戶姓名")]
-        public string CustomerName { get; set; } = string.Empty; // Maps to N8N API field "客戶名稱"
-
-        [Display(Name = "客戶Email")]
-        public string CustomerEmail { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
 
         [Display(Name = "支付方式")]
         public string PaymentMethod { get; set; } = string.Empty;
 
         [Display(Name = "支付狀態")]
-        public PaymentStatus PaymentStatus { get; set; }
+        public string PaymentStatusRaw { get; set; } = string.Empty;
 
-        [Display(Name = "訂單狀態")]
-        public OrderStatus OrderStatus { get; set; }
-
-        [Display(Name = "總金額")]
-        [DisplayFormat(DataFormatString = "{0:C}")]
-        public decimal TotalAmount { get; set; }
-
-        [Display(Name = "備註")]
-        public string? Notes { get; set; }
+        public PaymentStatus PaymentStatus => ParsePaymentStatus(PaymentStatusRaw);
 
         public string PaymentStatusDisplay => GetPaymentStatusDisplay();
-        public string OrderStatusDisplay => GetOrderStatusDisplay();
         public string PaymentStatusCssClass => GetPaymentStatusCssClass();
-        public string OrderStatusCssClass => GetOrderStatusCssClass();
+
+        private PaymentStatus ParsePaymentStatus(string status)
+        {
+            return status?.ToLower() switch
+            {
+                "success" => PaymentStatus.Success,
+                "pending" => PaymentStatus.Pending,
+                "failed" => PaymentStatus.Failed,
+                "refunded" => PaymentStatus.Refunded,
+                "cancelled" => PaymentStatus.Cancelled,
+                _ => PaymentStatus.Pending
+            };
+        }
 
         private string GetPaymentStatusDisplay()
         {
             return PaymentStatus switch
             {
                 PaymentStatus.Pending => "待付款",
-                PaymentStatus.Paid => "已付款",
+                PaymentStatus.Success => "已付款",
                 PaymentStatus.Failed => "付款失敗",
                 PaymentStatus.Refunded => "已退款",
                 PaymentStatus.Cancelled => "已取消",
-                _ => "未知"
-            };
-        }
-
-        private string GetOrderStatusDisplay()
-        {
-            return OrderStatus switch
-            {
-                OrderStatus.Pending => "待處理",
-                OrderStatus.Confirmed => "已確認",
-                OrderStatus.InProgress => "進行中",
-                OrderStatus.Completed => "已完成",
-                OrderStatus.Cancelled => "已取消",
                 _ => "未知"
             };
         }
@@ -300,7 +215,7 @@ namespace DoDoManBackOffice.Models.ViewModels
             return PaymentStatus switch
             {
                 PaymentStatus.Pending => "badge bg-warning",
-                PaymentStatus.Paid => "badge bg-success",
+                PaymentStatus.Success => "badge bg-success",
                 PaymentStatus.Failed => "badge bg-danger",
                 PaymentStatus.Refunded => "badge bg-info",
                 PaymentStatus.Cancelled => "badge bg-secondary",
@@ -308,16 +223,27 @@ namespace DoDoManBackOffice.Models.ViewModels
             };
         }
 
-        private string GetOrderStatusCssClass()
+        public static OrderViewModel FromN8NDto(N8NOrderResponseDto dto)
         {
-            return OrderStatus switch
+            return new OrderViewModel
             {
-                OrderStatus.Pending => "badge bg-warning",
-                OrderStatus.Confirmed => "badge bg-primary",
-                OrderStatus.InProgress => "badge bg-info",
-                OrderStatus.Completed => "badge bg-success",
-                OrderStatus.Cancelled => "badge bg-secondary",
-                _ => "badge bg-light"
+                OrderNumber = dto.OrderNumber,
+                OrderDate = DateTime.TryParse(dto.OrderDate, out var orderDate) ? orderDate : DateTime.MinValue,
+                CustomerName = dto.CustomerName,
+                PaymentMethod = FormatPaymentMethod(dto.PaymentMethod),
+                PaymentStatusRaw = dto.PaymentStatus
+            };
+        }
+
+        private static string FormatPaymentMethod(string method)
+        {
+            return method?.ToLower() switch
+            {
+                "credit card" => "信用卡",
+                "bank transfer" => "銀行轉帳",
+                "paypal" => "PayPal",
+                "line pay" => "Line Pay",
+                _ => method ?? ""
             };
         }
     }
@@ -326,8 +252,6 @@ namespace DoDoManBackOffice.Models.ViewModels
 
 **Models/ViewModels/OrderListViewModel.cs**
 ```csharp
-using DoDoManBackOffice.Models.Entities;
-
 namespace DoDoManBackOffice.Models.ViewModels
 {
     public class OrderListViewModel
@@ -336,11 +260,10 @@ namespace DoDoManBackOffice.Models.ViewModels
         public FilterViewModel Filter { get; set; } = new();
         public PaginationViewModel Pagination { get; set; } = new();
 
-        // Summary Statistics
+        // Summary Statistics (calculated from filtered results)
         public int TotalOrders { get; set; }
-        public decimal TotalRevenue { get; set; }
         public int PendingOrders { get; set; }
-        public int CompletedOrders { get; set; }
+        public int SuccessfulOrders { get; set; }
     }
 
     public class PaginationViewModel
@@ -363,7 +286,7 @@ namespace DoDoManBackOffice.Models.ViewModels
 ```csharp
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using DoDoManBackOffice.Models.Entities;
+using DoDoManBackOffice.Models.DTOs;
 
 namespace DoDoManBackOffice.Models.ViewModels
 {
@@ -378,7 +301,7 @@ namespace DoDoManBackOffice.Models.ViewModels
         public DateTime? EndDate { get; set; }
 
         [Display(Name = "訂單編號")]
-        public int? OrderNumber { get; set; } // N8N API uses integer order numbers
+        public int? OrderNumber { get; set; }
 
         [Display(Name = "客戶姓名")]
         [StringLength(100)]
@@ -388,10 +311,7 @@ namespace DoDoManBackOffice.Models.ViewModels
         public string? PaymentMethod { get; set; }
 
         [Display(Name = "支付狀態")]
-        public PaymentStatus? PaymentStatus { get; set; }
-
-        [Display(Name = "訂單狀態")]
-        public OrderStatus? OrderStatus { get; set; }
+        public string? PaymentStatus { get; set; }
 
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
@@ -400,284 +320,104 @@ namespace DoDoManBackOffice.Models.ViewModels
         public List<SelectListItem> PaymentMethodOptions { get; set; } = new()
         {
             new SelectListItem { Value = "", Text = "全部" },
-            new SelectListItem { Value = "CreditCard", Text = "信用卡" },
-            new SelectListItem { Value = "BankTransfer", Text = "銀行轉帳" },
-            new SelectListItem { Value = "PayPal", Text = "PayPal" },
-            new SelectListItem { Value = "LinePay", Text = "Line Pay" }
+            new SelectListItem { Value = "credit card", Text = "信用卡" },
+            new SelectListItem { Value = "bank transfer", Text = "銀行轉帳" },
+            new SelectListItem { Value = "paypal", Text = "PayPal" },
+            new SelectListItem { Value = "line pay", Text = "Line Pay" }
         };
 
         public List<SelectListItem> PaymentStatusOptions { get; set; } = new()
         {
             new SelectListItem { Value = "", Text = "全部" },
-            new SelectListItem { Value = "0", Text = "待付款" },
-            new SelectListItem { Value = "1", Text = "已付款" },
-            new SelectListItem { Value = "2", Text = "付款失敗" },
-            new SelectListItem { Value = "3", Text = "已退款" },
-            new SelectListItem { Value = "4", Text = "已取消" }
-        };
-
-        public List<SelectListItem> OrderStatusOptions { get; set; } = new()
-        {
-            new SelectListItem { Value = "", Text = "全部" },
-            new SelectListItem { Value = "0", Text = "待處理" },
-            new SelectListItem { Value = "1", Text = "已確認" },
-            new SelectListItem { Value = "2", Text = "進行中" },
-            new SelectListItem { Value = "3", Text = "已完成" },
-            new SelectListItem { Value = "4", Text = "已取消" }
+            new SelectListItem { Value = "pending", Text = "待付款" },
+            new SelectListItem { Value = "success", Text = "已付款" },
+            new SelectListItem { Value = "failed", Text = "付款失敗" },
+            new SelectListItem { Value = "refunded", Text = "已退款" },
+            new SelectListItem { Value = "cancelled", Text = "已取消" }
         };
     }
 }
 ```
 
-### Step 2.3: Database Context
+### Step 2.4: Configuration Settings
 
-**Data/ApplicationDbContext.cs**
-```csharp
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore;
-using DoDoManBackOffice.Models.Entities;
-
-namespace DoDoManBackOffice.Data
+**appsettings.json**
+```json
 {
-    public class ApplicationDbContext : IdentityDbContext
-    {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
-            : base(options)
-        {
-        }
-
-        public DbSet<Order> Orders { get; set; }
-        public DbSet<Customer> Customers { get; set; }
-        public DbSet<OrderItem> OrderItems { get; set; }
-        public DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-
-            // Apply configurations
-            modelBuilder.ApplyConfiguration(new OrderConfiguration());
-            modelBuilder.ApplyConfiguration(new CustomerConfiguration());
-            modelBuilder.ApplyConfiguration(new OrderItemConfiguration());
-            modelBuilder.ApplyConfiguration(new OrderStatusHistoryConfiguration());
-
-            // Seed data
-            SeedData(modelBuilder);
-        }
-
-        private void SeedData(ModelBuilder modelBuilder)
-        {
-            // Seed Customers
-            modelBuilder.Entity<Customer>().HasData(
-                new Customer
-                {
-                    CustomerId = 1,
-                    FirstName = "張",
-                    LastName = "小明",
-                    Email = "zhang.xiaoming@example.com",
-                    PhoneNumber = "0912345678",
-                    Address = "台北市信義區信義路五段7號",
-                    City = "台北市",
-                    Country = "台灣",
-                    PostalCode = "110",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    IsActive = true
-                },
-                new Customer
-                {
-                    CustomerId = 2,
-                    FirstName = "李",
-                    LastName = "美麗",
-                    Email = "li.meili@example.com",
-                    PhoneNumber = "0987654321",
-                    Address = "台中市西屯區台灣大道三段99號",
-                    City = "台中市",
-                    Country = "台灣",
-                    PostalCode = "407",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    IsActive = true
-                }
-            );
-
-            // Seed Orders
-            modelBuilder.Entity<Order>().HasData(
-                new Order
-                {
-                    OrderId = 1,
-                    OrderNumber = 1, // N8N API format: integer order number
-                    OrderDate = DateTime.UtcNow.AddDays(-7),
-                    CustomerId = 1,
-                    TotalAmount = 25000.00m,
-                    PaymentMethod = "credit card", // N8N API format: lowercase
-                    PaymentStatus = PaymentStatus.Paid,
-                    OrderStatus = OrderStatus.Completed,
-                    CreatedAt = DateTime.UtcNow.AddDays(-7),
-                    UpdatedAt = DateTime.UtcNow.AddDays(-1),
-                    CreatedBy = "System"
-                },
-                new Order
-                {
-                    OrderId = 2,
-                    OrderNumber = 2, // N8N API format: integer order number
-                    OrderDate = DateTime.UtcNow.AddDays(-3),
-                    CustomerId = 2,
-                    TotalAmount = 18500.00m,
-                    PaymentMethod = "bank transfer", // N8N API format: lowercase
-                    PaymentStatus = PaymentStatus.Pending,
-                    OrderStatus = OrderStatus.Confirmed,
-                    CreatedAt = DateTime.UtcNow.AddDays(-3),
-                    UpdatedAt = DateTime.UtcNow.AddDays(-3),
-                    CreatedBy = "System"
-                }
-            );
-        }
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
     }
+  },
+  "AllowedHosts": "*",
+  "N8NSettings": {
+    "BaseUrl": "https://your-n8n-instance.com",
+    "OrdersApiUrl": "https://your-n8n-instance.com/webhook/orders",
+    "ApiKey": "your-api-key-here",
+    "Timeout": 30
+  }
 }
 ```
 
-### Step 2.4: Entity Configurations
-
-**Data/Configurations/OrderConfiguration.cs**
-```csharp
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using DoDoManBackOffice.Models.Entities;
-
-namespace DoDoManBackOffice.Data.Configurations
+**appsettings.Development.json**
+```json
 {
-    public class OrderConfiguration : IEntityTypeConfiguration<Order>
-    {
-        public void Configure(EntityTypeBuilder<Order> builder)
-        {
-            // Table name
-            builder.ToTable("Orders");
-
-            // Primary key
-            builder.HasKey(o => o.OrderId);
-
-            // Properties
-            builder.Property(o => o.OrderNumber)
-                .IsRequired()
-                .HasComment("訂單編號 (integer format from N8N API)");
-
-            builder.Property(o => o.TotalAmount)
-                .HasColumnType("decimal(18,2)")
-                .HasComment("總金額");
-
-            builder.Property(o => o.PaymentMethod)
-                .IsRequired()
-                .HasMaxLength(50)
-                .HasComment("支付方式");
-
-            builder.Property(o => o.Notes)
-                .HasMaxLength(1000)
-                .HasComment("備註");
-
-            builder.Property(o => o.CreatedAt)
-                .HasDefaultValueSql("GETUTCDATE()")
-                .HasComment("建立時間");
-
-            builder.Property(o => o.UpdatedAt)
-                .HasDefaultValueSql("GETUTCDATE()")
-                .HasComment("更新時間");
-
-            // Indexes
-            builder.HasIndex(o => o.OrderNumber)
-                .IsUnique()
-                .HasDatabaseName("IX_Orders_OrderNumber");
-
-            builder.Property(o => o.OrderNumber)
-                .HasComment("訂單編號 (integer format from N8N API)");
-
-            builder.HasIndex(o => o.OrderDate)
-                .HasDatabaseName("IX_Orders_OrderDate");
-
-            builder.HasIndex(o => o.PaymentStatus)
-                .HasDatabaseName("IX_Orders_PaymentStatus");
-
-            builder.HasIndex(o => o.OrderStatus)
-                .HasDatabaseName("IX_Orders_OrderStatus");
-
-            // Relationships
-            builder.HasOne(o => o.Customer)
-                .WithMany(c => c.Orders)
-                .HasForeignKey(o => o.CustomerId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.HasMany(o => o.OrderItems)
-                .WithOne(oi => oi.Order)
-                .HasForeignKey(oi => oi.OrderId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            builder.HasMany(o => o.StatusHistory)
-                .WithOne(h => h.Order)
-                .HasForeignKey(h => h.OrderId)
-                .OnDelete(DeleteBehavior.Cascade);
-        }
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "DoDoManBackOffice": "Debug"
     }
+  },
+  "N8NSettings": {
+    "BaseUrl": "http://localhost:5678",
+    "OrdersApiUrl": "http://localhost:5678/webhook/orders",
+    "ApiKey": "dev-api-key",
+    "Timeout": 10
+  }
 }
 ```
 
-### Step 2.5: Create Database Migration
-```bash
-# Add initial migration
-dotnet ef migrations add InitialCreate
+### Step 2.5: Service Registration
 
-# Update database
-dotnet ef database update
-
-# Verify migration
-dotnet ef migrations list
-```
-
-### Step 2.6: Data Transfer Objects (DTOs)
-
-**Models/DTOs/OrderDto.cs**
+**Program.cs** (add these registrations)
 ```csharp
-using DoDoManBackOffice.Models.Entities;
-
-namespace DoDoManBackOffice.Models.DTOs
+// Add HTTP client for N8N API
+builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(client =>
 {
-    public class OrderDto
-    {
-        public int OrderId { get; set; }
-        public int OrderNumber { get; set; } // N8N API returns integer order number
-        public DateTime OrderDate { get; set; }
-        public string CustomerName { get; set; } = string.Empty;
-        public string CustomerEmail { get; set; } = string.Empty;
-        public decimal TotalAmount { get; set; }
-        public string PaymentMethod { get; set; } = string.Empty;
-        public PaymentStatus PaymentStatus { get; set; }
-        public OrderStatus OrderStatus { get; set; }
-        public string? Notes { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-        public List<OrderItemDto> OrderItems { get; set; } = new();
-    }
+    var n8nSettings = builder.Configuration.GetSection("N8NSettings");
+    client.BaseAddress = new Uri(n8nSettings["BaseUrl"]!);
+    client.Timeout = TimeSpan.FromSeconds(int.Parse(n8nSettings["Timeout"] ?? "30"));
 
-    public class OrderItemDto
+    // Add API key if configured
+    var apiKey = n8nSettings["ApiKey"];
+    if (!string.IsNullOrEmpty(apiKey))
     {
-        public int OrderItemId { get; set; }
-        public string ProductName { get; set; } = string.Empty;
-        public string? ProductType { get; set; }
-        public int Quantity { get; set; }
-        public decimal UnitPrice { get; set; }
-        public decimal TotalPrice { get; set; }
-        public string? Description { get; set; }
+        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
     }
-}
+});
+
+// Register services
+builder.Services.AddScoped<IN8NApiService, N8NApiService>();
 ```
 
 ## Verification Steps
-1. Run `dotnet ef migrations add InitialCreate`
-2. Run `dotnet ef database update`
-3. Verify tables are created in database
-4. Check seed data is inserted
-5. Test entity relationships work correctly
+1. Configure N8N API endpoint in appsettings.json
+2. Test N8N API connectivity
+3. Verify data mapping from N8N response to ViewModels
+4. Test filtering functionality with N8N data
+5. Verify pagination works with API data
 
 ## Next Steps
-After completing the database setup, proceed to:
+After completing the N8N API integration setup, proceed to:
 - 03-Service-Layer.md for business logic implementation
 - 04-Controllers-API.md for API and controller development
+
+## Key Changes from Original Database Approach
+
+1. **No Local Database**: All data comes directly from N8N API calls
+2. **Simplified Models**: DTOs map directly to N8N API response structure
+3. **Client-side Filtering**: Filtering and pagination handled in-memory after API call
+4. **Real-time Data**: Always displays current data from N8N system
+5. **Configuration-based**: API endpoint and authentication configured via appsettings.json

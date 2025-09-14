@@ -1,6 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
-using DoDoManBackOffice.Data;
+using DoDoManBackOffice.Services;
 using DoDoManBackOffice.Services.Interfaces;
 using DoDoManBackOffice.Services.Implementations;
 using DoDoManBackOffice.Configuration;
@@ -20,18 +19,15 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
 
-// Identity Configuration
+// Identity Configuration (using in-memory store for demo)
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireDigit = true;
     options.Password.RequiredLength = 8;
 })
-.AddEntityFrameworkStores<ApplicationDbContext>();
+.AddInMemoryStores();
 
 // Configuration Objects
 builder.Services.Configure<N8NSettings>(builder.Configuration.GetSection("N8NSettings"));
@@ -42,7 +38,29 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IN8NIntegrationService, N8NIntegrationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
-// HTTP Client for N8N Integration
+// Add HTTP client for N8N API
+builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(client =>
+{
+    var n8nSettings = builder.Configuration.GetSection("N8NSettings");
+    var baseUrl = n8nSettings["BaseUrl"];
+    if (!string.IsNullOrEmpty(baseUrl))
+    {
+        client.BaseAddress = new Uri(baseUrl);
+    }
+    client.Timeout = TimeSpan.FromSeconds(int.Parse(n8nSettings["Timeout"] ?? "30"));
+
+    // Add API key if configured
+    var apiKey = n8nSettings["ApiKey"];
+    if (!string.IsNullOrEmpty(apiKey))
+    {
+        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+    }
+});
+
+// Register N8N API service
+builder.Services.AddScoped<IN8NApiService, N8NApiService>();
+
+// HTTP Client for N8N Integration (existing service)
 builder.Services.AddHttpClient<IN8NIntegrationService>();
 
 // FluentValidation
@@ -74,19 +92,14 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
-// Database Migration
-using (var scope = app.Services.CreateScope())
+// N8N API connectivity check (optional)
+try
 {
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    try
-    {
-        context.Database.EnsureCreated();
-        Log.Information("Database ensured created successfully");
-    }
-    catch (Exception ex)
-    {
-        Log.Error(ex, "An error occurred while creating the database");
-    }
+    Log.Information("N8N API configuration loaded successfully");
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "An error occurred while configuring N8N API");
 }
 
 Log.Information("DoDoMan BackOffice application starting up");
