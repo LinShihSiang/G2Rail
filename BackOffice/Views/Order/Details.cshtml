@@ -1,0 +1,153 @@
+@model DoDoManBackOffice.Controllers.OrderDetailsViewModel
+@{
+    ViewData["Title"] = $"Order Details - #{Model.Order.OrderNumber}";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Order Information Card -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Order Information</h5>
+                <span class="@Model.Order.PaymentStatusCssClass">
+                    @Model.Order.PaymentStatusDisplay
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Order Number:</dt>
+                            <dd class="col-sm-8">#@Model.Order.OrderNumber</dd>
+
+                            <dt class="col-sm-4">Order Date:</dt>
+                            <dd class="col-sm-8">@Model.Order.OrderDate.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                            <dt class="col-sm-4">Customer:</dt>
+                            <dd class="col-sm-8">@Model.Order.CustomerName</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Payment Method:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-light text-dark">
+                                    @Model.Order.PaymentMethod
+                                </span>
+                            </dd>
+
+                            <dt class="col-sm-4">Payment Status:</dt>
+                            <dd class="col-sm-8">
+                                <span class="@Model.Order.PaymentStatusCssClass">
+                                    @Model.Order.PaymentStatusDisplay
+                                </span>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- Quick Actions Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Quick Actions</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="@Url.Action("Index")" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left me-2"></i>Back to List
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                        <i class="bi bi-printer me-2"></i>Print Details
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary Card -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Order Summary</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Order Number:</span>
+                    <strong>#@Model.Order.OrderNumber</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Status:</span>
+                    <span class="@Model.Order.PaymentStatusCssClass">
+                        @Model.Order.PaymentStatusDisplay
+                    </span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Date Created:</span>
+                    <small>@Model.Order.OrderDate.ToString("MMM dd, yyyy")</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Details Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Raw Order Data (From N8N API)</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Order Information</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Order Number:</strong></td>
+                                <td>@Model.Order.OrderNumber</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Order Date:</strong></td>
+                                <td>@Model.Order.OrderDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Customer Name:</strong></td>
+                                <td>@Model.Order.CustomerName</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Payment Information</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Payment Method:</strong></td>
+                                <td>@Model.Order.PaymentMethod</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Payment Status:</strong></td>
+                                <td>
+                                    <span class="@Model.Order.PaymentStatusCssClass">
+                                        @Model.Order.PaymentStatusDisplay
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-refresh order status every 30 seconds
+        setInterval(function() {
+            // Optional: Auto-refresh order details for real-time updates
+            // location.reload();
+        }, 30000);
+    </script>
+}

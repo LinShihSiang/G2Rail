@@ -1,52 +1,221 @@
+@model DoDoManBackOffice.Controllers.DashboardViewModel
 @{
-    ViewData["Title"] = "儀表板";
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<div class="row">
-    <div class="col-12">
-        <h1>DoDoMan 後台管理系統</h1>
-        <p class="lead">歡迎使用 DoDoMan 旅遊後台管理系統</p>
-
-        <div class="alert alert-info" role="alert">
-            <h4 class="alert-heading">系統設定完成！</h4>
-            <p>基礎專案結構已建立完成。接下來請依序實作以下步驟：</p>
-            <hr>
-            <ul class="mb-0">
-                <li>Step 02: 資料庫模型和 Entity Framework 設定</li>
-                <li>Step 03: 業務邏輯層服務實作</li>
-                <li>Step 04: Controllers 和 API 端點</li>
-                <li>Step 05: UI 介面和前端實作</li>
-                <li>Step 06: N8N 工作流程整合</li>
-                <li>Step 07: 測試和部署</li>
-            </ul>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h5>專案結構</h5>
-            </div>
+<!-- Statistics Overview -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card stats-card border-start-primary">
             <div class="card-body">
-                <p>以下目錄結構已建立：</p>
-                <ul>
-                    <li><strong>Controllers/</strong> - MVC Controllers</li>
-                    <li><strong>Models/</strong> - 資料模型
-                        <ul>
-                            <li>Entities/ - 實體模型</li>
-                            <li>ViewModels/ - 檢視模型</li>
-                            <li>DTOs/ - 資料傳輸物件</li>
-                        </ul>
-                    </li>
-                    <li><strong>Services/</strong> - 業務邏輯服務
-                        <ul>
-                            <li>Interfaces/ - 服務介面</li>
-                            <li>Implementations/ - 服務實作</li>
-                        </ul>
-                    </li>
-                    <li><strong>Data/</strong> - 資料存取層</li>
-                    <li><strong>Views/</strong> - Razor 檢視</li>
-                    <li><strong>Configuration/</strong> - 設定類別</li>
-                </ul>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>@Model.TodayOrderCount</h3>
+                        <p class="mb-0">Today's Orders</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-calendar-today fs-1 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card stats-card border-start-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>@Model.MonthOrderCount</h3>
+                        <p class="mb-0">This Month</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-graph-up fs-1 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card stats-card border-start-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>@Model.PendingOrderCount</h3>
+                        <p class="mb-0">Pending Orders</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock-history fs-1 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-md-6 mb-4">
+        <div class="card stats-card border-start-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>@Model.SuccessfulOrderCount</h3>
+                        <p class="mb-0">Successful Orders</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1 text-info"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Charts and Recent Orders -->
+<div class="row">
+    <!-- Order Status Chart -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Order Status Distribution</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="orderStatusChart" width="400" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Method Chart -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">Payment Method Distribution</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="paymentMethodChart" width="400" height="400"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">Recent Orders</h6>
+                <a href="@Url.Action("Index", "Order")" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body p-0">
+                @if (Model.RecentOrders.Any())
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var order in Model.RecentOrders)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            <a href="@Url.Action("Details", "Order", new { orderNumber = order.OrderNumber })"
+                                               class="text-decoration-none">
+                                                #@order.OrderNumber
+                                            </a>
+                                        </h6>
+                                        <p class="mb-1 small text-muted">@order.CustomerName</p>
+                                        <small class="text-muted">@order.OrderDate.ToString("MM-dd HH:mm")</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="@order.PaymentStatusCssClass mb-1">
+                                            @order.PaymentStatusDisplay
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-3"></i>
+                        <p class="mb-0 mt-2">No recent orders</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Order Status Pie Chart
+        const statusCtx = document.getElementById('orderStatusChart').getContext('2d');
+        new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: [@Html.Raw(string.Join(",", Model.StatusCounts.Select(s => $"'{s.DisplayName}'")))],
+                datasets: [{
+                    data: [@string.Join(",", Model.StatusCounts.Select(s => s.Count))],
+                    backgroundColor: [
+                        '#ffc107', // Pending - Warning
+                        '#28a745', // Success - Success
+                        '#dc3545', // Failed - Danger
+                        '#17a2b8', // Refunded - Info
+                        '#6c757d'  // Cancelled - Secondary
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Payment Method Chart
+        const paymentCtx = document.getElementById('paymentMethodChart').getContext('2d');
+        new Chart(paymentCtx, {
+            type: 'bar',
+            data: {
+                labels: [@Html.Raw(string.Join(",", Model.PaymentMethodSummary.Select(p => $"'{p.DisplayName}'")))],
+                datasets: [{
+                    label: 'Order Count',
+                    data: [@string.Join(",", Model.PaymentMethodSummary.Select(p => p.Count))],
+                    backgroundColor: '#28a745',
+                    borderColor: '#1e7e34',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+}

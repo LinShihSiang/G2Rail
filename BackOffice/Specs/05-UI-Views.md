@@ -181,13 +181,13 @@
                 </div>
 
                 <!-- Order Number -->
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label asp-for="OrderNumber" class="form-label">訂單編號</label>
                     <input asp-for="OrderNumber" class="form-control" placeholder="輸入訂單編號..." autocomplete="off">
                 </div>
 
                 <!-- Customer Name -->
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label asp-for="CustomerName" class="form-label">客戶姓名</label>
                     <input asp-for="CustomerName" class="form-control" placeholder="輸入客戶姓名..." autocomplete="off">
                 </div>
@@ -206,37 +206,28 @@
                     </select>
                 </div>
 
-                <!-- Order Status -->
-                <div class="col-md-2">
-                    <label asp-for="OrderStatus" class="form-label">訂單狀態</label>
-                    <select asp-for="OrderStatus" asp-items="Model.OrderStatusOptions" class="form-select">
-                    </select>
-                </div>
-
-                <!-- Page Size -->
-                <div class="col-md-2">
-                    <label asp-for="PageSize" class="form-label">每頁筆數</label>
-                    <select asp-for="PageSize" class="form-select">
-                        <option value="10" selected="@(Model.PageSize == 10)">10</option>
-                        <option value="20" selected="@(Model.PageSize == 20)">20</option>
-                        <option value="50" selected="@(Model.PageSize == 50)">50</option>
-                        <option value="100" selected="@(Model.PageSize == 100)">100</option>
-                    </select>
-                </div>
-
-                <!-- Search Buttons -->
-                <div class="col-md-6">
-                    <label class="form-label">&nbsp;</label>
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-search me-1"></i>搜尋
-                        </button>
-                        <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-clockwise me-1"></i>重置
-                        </a>
-                        <button type="button" class="btn btn-outline-primary" onclick="exportOrders()">
-                            <i class="bi bi-download me-1"></i>匯出
-                        </button>
+                <!-- Search Buttons and Page Size -->
+                <div class="col-md-12">
+                    <div class="d-flex justify-content-between align-items-end">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-search me-1"></i>搜尋
+                            </button>
+                            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-clockwise me-1"></i>重置
+                            </a>
+                            <button type="button" class="btn btn-outline-primary" onclick="exportOrders()">
+                                <i class="bi bi-download me-1"></i>匯出
+                            </button>
+                        </div>
+                        <div>
+                            <label asp-for="PageSize" class="form-label">每頁筆數</label>
+                            <select asp-for="PageSize" class="form-select" style="width: auto; display: inline-block;">
+                                <option value="10" selected="@(Model.PageSize == 10)">10</option>
+                                <option value="20" selected="@(Model.PageSize == 20)">20</option>
+                                <option value="50" selected="@(Model.PageSize == 50)">50</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -325,7 +316,7 @@ function exportOrders() {
 
 <!-- Summary Cards -->
 <div class="row mb-4">
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="card text-white bg-primary">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -340,28 +331,13 @@ function exportOrders() {
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4>@Model.TotalRevenue.ToString("C")</h4>
-                        <p class="card-text">總營收</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="bi bi-currency-dollar fs-2"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
+    <div class="col-md-4">
         <div class="card text-white bg-warning">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
                         <h4>@Model.PendingOrders</h4>
-                        <p class="card-text">待處理</p>
+                        <p class="card-text">待付款</p>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-clock-history fs-2"></i>
@@ -370,13 +346,13 @@ function exportOrders() {
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-info">
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h4>@Model.CompletedOrders</h4>
-                        <p class="card-text">已完成</p>
+                        <h4>@Model.SuccessfulOrders</h4>
+                        <p class="card-text">已付款</p>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-check-circle fs-2"></i>
@@ -410,8 +386,6 @@ function exportOrders() {
                             <th>客戶姓名</th>
                             <th>支付方式</th>
                             <th>支付狀態</th>
-                            <th>訂單狀態</th>
-                            <th class="text-end">總金額</th>
                             <th width="120">操作</th>
                         </tr>
                     </thead>
@@ -420,15 +394,14 @@ function exportOrders() {
                         {
                             <tr>
                                 <td>
-                                    <a href="@Url.Action("Details", new { id = order.OrderId })"
+                                    <a href="@Url.Action("Details", new { orderNumber = order.OrderNumber })"
                                        class="text-decoration-none fw-bold">
-                                        @order.OrderNumber
+                                        #@order.OrderNumber
                                     </a>
                                 </td>
                                 <td>@order.OrderDate.ToString("yyyy-MM-dd HH:mm")</td>
                                 <td>
                                     <div>@order.CustomerName</div>
-                                    <small class="text-muted">@order.CustomerEmail</small>
                                 </td>
                                 <td>
                                     <span class="badge bg-light text-dark">
@@ -441,12 +414,6 @@ function exportOrders() {
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="@order.OrderStatusCssClass">
-                                        @order.OrderStatusDisplay
-                                    </span>
-                                </td>
-                                <td class="text-end fw-bold">@order.TotalAmount.ToString("C")</td>
-                                <td>
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
                                                 type="button" data-bs-toggle="dropdown">
@@ -455,27 +422,10 @@ function exportOrders() {
                                         <ul class="dropdown-menu">
                                             <li>
                                                 <a class="dropdown-item"
-                                                   href="@Url.Action("Details", new { id = order.OrderId })">
+                                                   href="@Url.Action("Details", new { orderNumber = order.OrderNumber })">
                                                     <i class="bi bi-eye me-2"></i>查看詳情
                                                 </a>
                                             </li>
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="@Url.Action("Edit", new { id = order.OrderId })">
-                                                    <i class="bi bi-pencil me-2"></i>編輯
-                                                </a>
-                                            </li>
-                                            @if (order.OrderStatus == DoDoManBackOffice.Models.Entities.OrderStatus.Pending ||
-                                                 order.OrderStatus == DoDoManBackOffice.Models.Entities.OrderStatus.Confirmed)
-                                            {
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li>
-                                                    <button class="dropdown-item text-danger"
-                                                            onclick="cancelOrder(@order.OrderId, '@order.OrderNumber')">
-                                                        <i class="bi bi-x-circle me-2"></i>取消訂單
-                                                    </button>
-                                                </li>
-                                            }
                                         </ul>
                                     </div>
                                 </td>
@@ -599,77 +549,13 @@ function exportOrders() {
     </nav>
 }
 
-<!-- Cancel Order Modal -->
-<div class="modal fade" id="cancelOrderModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">取消訂單</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>您確定要取消訂單 <strong id="cancelOrderNumber"></strong> 嗎？</p>
-                <div class="mb-3">
-                    <label for="cancelReason" class="form-label">取消原因 <span class="text-danger">*</span></label>
-                    <textarea id="cancelReason" class="form-control" rows="3" placeholder="請輸入取消原因..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-danger" onclick="confirmCancelOrder()">確定取消</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
     <script>
-        let currentCancelOrderId = 0;
-
-        function cancelOrder(orderId, orderNumber) {
-            currentCancelOrderId = orderId;
-            $('#cancelOrderNumber').text(orderNumber);
-            $('#cancelReason').val('');
-            $('#cancelOrderModal').modal('show');
-        }
-
-        function confirmCancelOrder() {
-            const reason = $('#cancelReason').val().trim();
-            if (!reason) {
-                alert('請輸入取消原因');
-                return;
-            }
-
-            $.ajax({
-                url: '@Url.Action("Cancel", "Order")',
-                type: 'POST',
-                data: {
-                    orderId: currentCancelOrderId,
-                    reason: reason,
-                    __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
-                },
-                success: function(response) {
-                    if (response.success) {
-                        $('#cancelOrderModal').modal('hide');
-                        location.reload();
-                    } else {
-                        alert(response.message || '取消訂單失敗');
-                    }
-                },
-                error: function() {
-                    alert('取消訂單時發生錯誤');
-                }
-            });
-        }
-
-        // Add CSRF token to all AJAX requests
-        $.ajaxSetup({
-            beforeSend: function(xhr, settings) {
-                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
-                    xhr.setRequestHeader("RequestVerificationToken", $('input[name="__RequestVerificationToken"]').val());
-                }
-            }
-        });
+        // Initialize auto-refresh for real-time data from N8N
+        setInterval(function() {
+            // Optional: Auto-refresh data every 5 minutes
+            // location.reload();
+        }, 300000);
     </script>
 }
 ```
