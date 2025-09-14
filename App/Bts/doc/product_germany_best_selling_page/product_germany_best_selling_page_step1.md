@@ -17,7 +17,7 @@ The Germany Best-Selling Tickets page displays filtered tour packages specifical
   "name": "Skip the line: DDR Museum Berlin",
   "intro": "Experience life in socialist East Germany with a trip to Berlin's award-winning DDR Museum to understand life under the dictatorship of the former DDR government between 1949 and 1989. Avoid the long queues with your skip the line entrance ticket which admits you to all areas of the museum. This interactive museum allows you to sit in an authentic Trabi car, undergo a Stasi interrogation or visit a replicated East German apartment complete with original television programming and more.",
   "highlights": "",
-  "price_eur": "12.0",  // Original price - Sell price = price_eur * 0.9 + 2
+  "price_eur": "12.0",  // Original price - Sell price = (price_eur * 0.9 + 2) rounded to 2 decimal places
   "images": [
     "https://sematicweb.detie.cn/content/N__353640561.jpg"
   ],
@@ -52,7 +52,7 @@ class GermanyTourPackage {
   final String name;         // package name
   final String intro;        // description
   final String priceEur;     // original price in EUR
-  final double sellPrice;    // calculated sell price = priceEur * 0.9 + 2
+  final double sellPrice;    // calculated sell price = (priceEur * 0.9 + 2) rounded to 2 decimal places
   final List<String> images; // image URLs
   final String location;     // Berlin or Munich
 
@@ -75,7 +75,7 @@ class GermanyToursRepo {
     // Load and parse Italy_Germany_tours.json
     // Filter for location: "Berlin" or "Munich"
     // Convert to GermanyTourPackage objects
-    // Calculate sellPrice = priceEur * 0.9 + 2 for each tour
+    // Calculate sellPrice = (priceEur * 0.9 + 2) rounded to 2 decimal places for each tour
   }
 
   List<GermanyTourPackage> filterByLocation(List<GermanyTourPackage> tours, String location) {
@@ -247,7 +247,7 @@ The complete `GermanyTourPackage` object is passed, containing:
 - **Package Name**: For display and reference
 - **Location**: Destination city (Berlin/Munich)
 - **Original Price**: Raw price_eur from JSON
-- **Sell Price**: Calculated price (price_eur * 0.9 + 2) for cost calculation
+- **Sell Price**: Calculated price ((price_eur * 0.9 + 2) rounded to 2 decimal places) for cost calculation
 - **Description**: For context and details
 - **Images**: For visual consistency
 
