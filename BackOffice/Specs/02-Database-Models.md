@@ -20,8 +20,7 @@ namespace DoDoManBackOffice.Models.Entities
         public int OrderId { get; set; }
 
         [Required]
-        [StringLength(20)]
-        public string OrderNumber { get; set; } = string.Empty;
+        public int OrderNumber { get; set; } // N8N API returns integer order number (訂單編號)
 
         [Required]
         public DateTime OrderDate { get; set; }
@@ -237,14 +236,14 @@ namespace DoDoManBackOffice.Models.ViewModels
         public int OrderId { get; set; }
 
         [Display(Name = "訂單編號")]
-        public string OrderNumber { get; set; } = string.Empty;
+        public int OrderNumber { get; set; } // N8N API returns integer order number
 
         [Display(Name = "訂單日期")]
         [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd HH:mm}")]
         public DateTime OrderDate { get; set; }
 
         [Display(Name = "客戶姓名")]
-        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty; // Maps to N8N API field "客戶名稱"
 
         [Display(Name = "客戶Email")]
         public string CustomerEmail { get; set; } = string.Empty;
@@ -379,8 +378,7 @@ namespace DoDoManBackOffice.Models.ViewModels
         public DateTime? EndDate { get; set; }
 
         [Display(Name = "訂單編號")]
-        [StringLength(20)]
-        public string? OrderNumber { get; set; }
+        public int? OrderNumber { get; set; } // N8N API uses integer order numbers
 
         [Display(Name = "客戶姓名")]
         [StringLength(100)]
@@ -508,11 +506,11 @@ namespace DoDoManBackOffice.Data
                 new Order
                 {
                     OrderId = 1,
-                    OrderNumber = "DDM2024001",
+                    OrderNumber = 1, // N8N API format: integer order number
                     OrderDate = DateTime.UtcNow.AddDays(-7),
                     CustomerId = 1,
                     TotalAmount = 25000.00m,
-                    PaymentMethod = "CreditCard",
+                    PaymentMethod = "credit card", // N8N API format: lowercase
                     PaymentStatus = PaymentStatus.Paid,
                     OrderStatus = OrderStatus.Completed,
                     CreatedAt = DateTime.UtcNow.AddDays(-7),
@@ -522,11 +520,11 @@ namespace DoDoManBackOffice.Data
                 new Order
                 {
                     OrderId = 2,
-                    OrderNumber = "DDM2024002",
+                    OrderNumber = 2, // N8N API format: integer order number
                     OrderDate = DateTime.UtcNow.AddDays(-3),
                     CustomerId = 2,
                     TotalAmount = 18500.00m,
-                    PaymentMethod = "BankTransfer",
+                    PaymentMethod = "bank transfer", // N8N API format: lowercase
                     PaymentStatus = PaymentStatus.Pending,
                     OrderStatus = OrderStatus.Confirmed,
                     CreatedAt = DateTime.UtcNow.AddDays(-3),
@@ -562,8 +560,7 @@ namespace DoDoManBackOffice.Data.Configurations
             // Properties
             builder.Property(o => o.OrderNumber)
                 .IsRequired()
-                .HasMaxLength(20)
-                .HasComment("訂單編號");
+                .HasComment("訂單編號 (integer format from N8N API)");
 
             builder.Property(o => o.TotalAmount)
                 .HasColumnType("decimal(18,2)")
@@ -590,6 +587,9 @@ namespace DoDoManBackOffice.Data.Configurations
             builder.HasIndex(o => o.OrderNumber)
                 .IsUnique()
                 .HasDatabaseName("IX_Orders_OrderNumber");
+
+            builder.Property(o => o.OrderNumber)
+                .HasComment("訂單編號 (integer format from N8N API)");
 
             builder.HasIndex(o => o.OrderDate)
                 .HasDatabaseName("IX_Orders_OrderDate");
@@ -643,7 +643,7 @@ namespace DoDoManBackOffice.Models.DTOs
     public class OrderDto
     {
         public int OrderId { get; set; }
-        public string OrderNumber { get; set; } = string.Empty;
+        public int OrderNumber { get; set; } // N8N API returns integer order number
         public DateTime OrderDate { get; set; }
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerEmail { get; set; } = string.Empty;

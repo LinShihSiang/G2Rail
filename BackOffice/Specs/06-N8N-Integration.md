@@ -8,6 +8,31 @@
 ### Step 6.1: N8N Integration Service Implementation
 
 **Services/Implementations/N8NIntegrationService.cs**
+
+### N8N Get Order API Integration
+
+The N8N get order API (https://howardmei.app.n8n.cloud/webhook/get-order) returns order data in the following format:
+
+```json
+[
+  {
+    "row_number": 2,
+    "訂單編號": 1,
+    "訂單日期": "9/14/2025 17:04:03",
+    "客戶名稱": "Howard Mei",
+    "支付方式": "credit card",
+    "支付狀態": "success"
+  }
+]
+```
+
+**Key API Response Fields**:
+- `row_number` (int): Sequential row identifier
+- `訂單編號` (int): Order number (integer format)
+- `訂單日期` (string): Order date in "M/D/YYYY HH:MM:SS" format
+- `客戶名稱` (string): Customer full name
+- `支付方式` (string): Payment method (lowercase format)
+- `支付狀態` (string): Payment status
 ```csharp
 using Microsoft.Extensions.Options;
 using System.Text.Json;
@@ -52,7 +77,7 @@ namespace DoDoManBackOffice.Services.Implementations
                 var payload = new N8NOrderStatusRequest
                 {
                     OrderId = order.OrderId,
-                    OrderNumber = order.OrderNumber,
+                    OrderNumber = order.OrderNumber, // Integer format matching N8N API
                     OldStatus = GetOrderStatusFromHistory(order.OrderId),
                     NewStatus = order.OrderStatus.ToString(),
                     UpdatedAt = order.UpdatedAt,
@@ -89,7 +114,7 @@ namespace DoDoManBackOffice.Services.Implementations
                 var payload = new N8NPaymentNotificationRequest
                 {
                     OrderId = order.OrderId,
-                    OrderNumber = order.OrderNumber,
+                    OrderNumber = order.OrderNumber, // Integer format matching N8N API
                     PaymentMethod = order.PaymentMethod,
                     PaymentStatus = order.PaymentStatus.ToString(),
                     Amount = order.TotalAmount,
@@ -953,8 +978,13 @@ namespace DoDoManBackOffice.Middleware
 builder.Services.AddHttpClient<IN8NIntegrationService>();
 builder.Services.AddScoped<IN8NIntegrationService, N8NIntegrationService>();
 
+// N8N Order Sync Service
+builder.Services.AddHttpClient<IN8NOrderSyncService>();
+builder.Services.AddScoped<IN8NOrderSyncService, N8NOrderSyncService>();
+
 // Background Services
 builder.Services.AddHostedService<N8NBackgroundService>();
+builder.Services.AddHostedService<N8NOrderSyncBackgroundService>();
 
 // Add N8N middleware after authentication
 app.UseAuthentication();
@@ -1184,6 +1214,301 @@ namespace DoDoManBackOffice.Services.Implementations
 5. Validate error handling and retry logic
 6. Monitor webhook delivery and response times
 7. Test scheduled reporting workflows
+
+### Step 6.8: N8N Get Order API Integration Service
+
+**Services/Implementations/N8NOrderSyncService.cs**
+```csharp
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using DoDoManBackOffice.Models.Entities;
+using DoDoManBackOffice.Services.Interfaces;
+
+namespace DoDoManBackOffice.Services.Implementations
+{
+    public interface IN8NOrderSyncService
+    {
+        Task<IEnumerable<N8NOrderResponse>> GetOrdersFromN8NAsync();
+        Task<N8NOrderResponse?> GetOrderFromN8NAsync(int orderNumber);
+        Task<bool> SyncOrdersToLocalDatabaseAsync();
+        Task<OrderDto?> MapN8NOrderToLocalAsync(N8NOrderResponse n8nOrder);
+    }
+
+    public class N8NOrderSyncService : IN8NOrderSyncService
+    {
+        private readonly HttpClient _httpClient;
+        private readonly IOrderService _orderService;
+        private readonly ILogger<N8NOrderSyncService> _logger;
+        private const string N8N_GET_ORDER_URL = "https://howardmei.app.n8n.cloud/webhook/get-order";
+
+        public N8NOrderSyncService(
+            HttpClient httpClient,
+            IOrderService orderService,
+            ILogger<N8NOrderSyncService> logger)
+        {
+            _httpClient = httpClient;
+            _orderService = orderService;
+            _logger = logger;
+        }
+
+        public async Task<IEnumerable<N8NOrderResponse>> GetOrdersFromN8NAsync()
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync(N8N_GET_ORDER_URL);
+                response.EnsureSuccessStatusCode();
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var orders = JsonSerializer.Deserialize<N8NOrderResponse[]>(jsonContent);
+
+                _logger.LogInformation("Retrieved {Count} orders from N8N API", orders?.Length ?? 0);
+                return orders ?? Array.Empty<N8NOrderResponse>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving orders from N8N API");
+                return Array.Empty<N8NOrderResponse>();
+            }
+        }
+
+        public async Task<N8NOrderResponse?> GetOrderFromN8NAsync(int orderNumber)
+        {
+            try
+            {
+                var orders = await GetOrdersFromN8NAsync();
+                return orders.FirstOrDefault(o => o.OrderNumber == orderNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving order {OrderNumber} from N8N API", orderNumber);
+                return null;
+            }
+        }
+
+        public async Task<bool> SyncOrdersToLocalDatabaseAsync()
+        {
+            try
+            {
+                var n8nOrders = await GetOrdersFromN8NAsync();
+                var syncedCount = 0;
+
+                foreach (var n8nOrder in n8nOrders)
+                {
+                    var existingOrder = await _orderService.GetOrderByNumberAsync(n8nOrder.OrderNumber);
+                    if (existingOrder == null)
+                    {
+                        // Create new order from N8N data
+                        var newOrderDto = await MapN8NOrderToLocalAsync(n8nOrder);
+                        if (newOrderDto != null)
+                        {
+                            await _orderService.CreateOrderAsync(newOrderDto);
+                            syncedCount++;
+                        }
+                    }
+                    else
+                    {
+                        // Update existing order with N8N data
+                        var updatedOrderDto = await MapN8NOrderToLocalAsync(n8nOrder);
+                        if (updatedOrderDto != null)
+                        {
+                            updatedOrderDto.OrderId = existingOrder.OrderId;
+                            await _orderService.UpdateOrderAsync(updatedOrderDto);
+                            syncedCount++;
+                        }
+                    }
+                }
+
+                _logger.LogInformation("Synchronized {Count} orders from N8N API", syncedCount);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error synchronizing orders from N8N API");
+                return false;
+            }
+        }
+
+        public async Task<OrderDto?> MapN8NOrderToLocalAsync(N8NOrderResponse n8nOrder)
+        {
+            try
+            {
+                return new OrderDto
+                {
+                    OrderNumber = n8nOrder.OrderNumber,
+                    OrderDate = n8nOrder.GetParsedOrderDate(),
+                    CustomerName = n8nOrder.CustomerName,
+                    PaymentMethod = n8nOrder.PaymentMethod,
+                    PaymentStatus = n8nOrder.GetMappedPaymentStatus(),
+                    OrderStatus = OrderStatus.Pending, // Default status for synced orders
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    // Note: TotalAmount and other fields would need to be retrieved from another N8N endpoint
+                    TotalAmount = 0m // Placeholder - needs actual implementation
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error mapping N8N order {OrderNumber} to local format", n8nOrder.OrderNumber);
+                return null;
+            }
+        }
+    }
+
+    // N8N Get Order API Response Models
+    public class N8NOrderResponse
+    {
+        [JsonPropertyName("row_number")]
+        public int RowNumber { get; set; }
+
+        [JsonPropertyName("訂單編號")]
+        public int OrderNumber { get; set; }
+
+        [JsonPropertyName("訂單日期")]
+        public string OrderDate { get; set; } = string.Empty;
+
+        [JsonPropertyName("客戶名稱")]
+        public string CustomerName { get; set; } = string.Empty;
+
+        [JsonPropertyName("支付方式")]
+        public string PaymentMethod { get; set; } = string.Empty;
+
+        [JsonPropertyName("支付狀態")]
+        public string PaymentStatus { get; set; } = string.Empty;
+
+        // Helper method to parse date from N8N format "M/d/yyyy HH:mm:ss"
+        public DateTime GetParsedOrderDate()
+        {
+            if (DateTime.TryParseExact(OrderDate, "M/d/yyyy HH:mm:ss",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out DateTime result))
+            {
+                return result;
+            }
+            return DateTime.UtcNow; // Fallback to current time
+        }
+
+        // Helper method to map N8N payment status to local enum
+        public PaymentStatus GetMappedPaymentStatus()
+        {
+            return PaymentStatus.ToLower() switch
+            {
+                "success" => Models.Entities.PaymentStatus.Paid,
+                "pending" => Models.Entities.PaymentStatus.Pending,
+                "failed" => Models.Entities.PaymentStatus.Failed,
+                _ => Models.Entities.PaymentStatus.Pending
+            };
+        }
+    }
+}
+```
+
+### Step 6.9: N8N API Configuration Updates
+
+**Configuration/N8NSettings.cs**
+```csharp
+namespace DoDoManBackOffice.Configuration
+{
+    public class N8NSettings
+    {
+        public string BaseUrl { get; set; } = string.Empty;
+        public string ApiKey { get; set; } = string.Empty;
+        public string WebhookSecret { get; set; } = string.Empty;
+        public N8NEndpoints Endpoints { get; set; } = new();
+
+        // N8N Get Order API Configuration
+        public string GetOrderUrl { get; set; } = "https://howardmei.app.n8n.cloud/webhook/get-order";
+        public int SyncIntervalMinutes { get; set; } = 30; // How often to sync orders
+        public bool AutoSyncEnabled { get; set; } = true;
+    }
+
+    public class N8NEndpoints
+    {
+        public string OrderStatusUpdate { get; set; } = "/webhook/order-status";
+        public string PaymentNotification { get; set; } = "/webhook/payment";
+        public string CustomerNotification { get; set; } = "/webhook/customer-notify";
+        public string GetOrder { get; set; } = "/webhook/get-order";
+    }
+}
+```
+
+### Step 6.10: Background Service for Order Synchronization
+
+**Services/Implementations/N8NOrderSyncBackgroundService.cs**
+```csharp
+using Microsoft.Extensions.Options;
+using DoDoManBackOffice.Services.Interfaces;
+using DoDoManBackOffice.Configuration;
+
+namespace DoDoManBackOffice.Services.Implementations
+{
+    public class N8NOrderSyncBackgroundService : BackgroundService
+    {
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<N8NOrderSyncBackgroundService> _logger;
+        private readonly N8NSettings _n8nSettings;
+
+        public N8NOrderSyncBackgroundService(
+            IServiceProvider serviceProvider,
+            ILogger<N8NOrderSyncBackgroundService> logger,
+            IOptions<N8NSettings> n8nSettings)
+        {
+            _serviceProvider = serviceProvider;
+            _logger = logger;
+            _n8nSettings = n8nSettings.Value;
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("N8N Order Sync Background Service started");
+
+            while (!stoppingToken.IsCancellationRequested && _n8nSettings.AutoSyncEnabled)
+            {
+                try
+                {
+                    await SyncOrdersFromN8N();
+
+                    var delayMinutes = _n8nSettings.SyncIntervalMinutes;
+                    await Task.Delay(TimeSpan.FromMinutes(delayMinutes), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in N8N order sync background service");
+                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                }
+            }
+
+            _logger.LogInformation("N8N Order Sync Background Service stopped");
+        }
+
+        private async Task SyncOrdersFromN8N()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var syncService = scope.ServiceProvider.GetRequiredService<IN8NOrderSyncService>();
+
+            try
+            {
+                var success = await syncService.SyncOrdersToLocalDatabaseAsync();
+                if (success)
+                {
+                    _logger.LogInformation("Order synchronization completed successfully");
+                }
+                else
+                {
+                    _logger.LogWarning("Order synchronization completed with errors");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during order synchronization");
+            }
+        }
+    }
+}
+```
 
 ## Next Steps
 After completing N8N integration, proceed to:
