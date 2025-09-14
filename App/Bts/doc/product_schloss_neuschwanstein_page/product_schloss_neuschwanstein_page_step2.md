@@ -159,9 +159,24 @@ Utilize existing `EmailService` with required parameters:
 - **Processing**: "Processing Payment..."
 - **Email Sending**: "Sending Confirmation..."
 
-### 5. Data Model Updates
+### 5. Station Display and API Integration Requirements
 
-#### 5.1 Enhanced OrderDraft
+#### 5.1 Station Display Format
+**Departure Station Options**:
+- **Display**: Show only `en_name` (English station name) to users
+- **No Station Code**: Do not display `station_code` in dropdown/search results
+- **Clean Interface**: Users see friendly names like "Berlin Central Station" without codes
+
+#### 5.2 API Call Requirements
+**G2Rail API Integration**:
+- **From Parameter**: Use `station_code` of selected departure station
+- **To Parameter**: Use `station_code` of calculated arrival station
+- **Internal Mapping**: Map user-selected station names to corresponding station codes
+- **Example**: User sees "Munich Central Station" but API receives station code like "MUC_CENTRAL"
+
+### 6. Data Model Updates
+
+#### 6.1 Enhanced OrderDraft
 Add payment-related fields if needed:
 ```dart
 final String? orderId;
@@ -169,17 +184,17 @@ final DateTime? paymentCompletedAt;
 final String? paymentTransactionId;
 ```
 
-#### 5.2 Companion Age Indication
+#### 6.2 Companion Age Indication
 Utilize existing `CompanionDraft.isChild` boolean for age indicators in email.
 
-### 6. Error Handling Strategy
+### 7. Error Handling Strategy
 
-#### 6.1 Payment Errors
+#### 7.1 Payment Errors
 - Network failures: Retry mechanism
 - Invalid card: User-friendly error messages
 - Processing errors: Contact support information
 
-#### 6.2 Email Errors
+#### 7.2 Email Errors
 - Email sending failures: Continue to confirmation page but show warning
 - Invalid email format: Validate during form input (already implemented)
 
@@ -197,6 +212,8 @@ dependencies:
 2. **pubspec.yaml**: Add email sender dependency
 3. **lib/services/email_service.dart**: Potentially enhance for order-specific formatting
 4. **lib/models/order_draft.dart**: Possibly add payment-related fields
+5. **Station UI Updates**: Modify departure station display to show only `en_name` without `station_code`
+6. **API Integration**: Ensure API calls use `station_code` internally while displaying friendly names to users
 
 ## Success Criteria
 
@@ -205,6 +222,8 @@ dependencies:
 3. **Error Handling**: Graceful handling of payment and email failures
 4. **User Experience**: Smooth transition from order entry to payment completion
 5. **Data Integrity**: Accurate order information in both payment and email systems
+6. **Station Display**: Clean UI showing only station names (`en_name`) without codes
+7. **API Compliance**: Proper use of `station_code` for G2Rail API calls (from/to parameters)
 
 ## Implementation Priority
 

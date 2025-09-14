@@ -8,7 +8,12 @@
       "mcp__ide__getDiagnostics",
       "mcp__serena__find_file",
       "Bash(flutter build:*)",
-      "Bash(timeout 30s flutter build:*)"
+      "Bash(timeout 30s flutter build:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter:*)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

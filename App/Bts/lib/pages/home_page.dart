@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
+      appBar: AppBar(title: const Text('Country')),
       body: FutureBuilder<List<Product>>(
         future: _future,
         builder: (context, snap) {

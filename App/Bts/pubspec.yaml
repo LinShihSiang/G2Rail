@@ -16,6 +16,8 @@ dependencies:
   flutter_stripe: ^12.0.2
   provider: ^6.1.5+1
   flutter_email_sender: ^8.0.0
+  excel: ^4.0.6
+  flutter_typeahead: ^5.2.0
 
   cupertino_icons: ^1.0.8
   intl: ^0.20.2
@@ -32,6 +34,7 @@ flutter:
     - assets/images/schloss_neuschwanstein.jpg
     - assets/images/germany_products.jpg
     - data/Italy_Germany_tours.json
+    - data/80_Germany.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

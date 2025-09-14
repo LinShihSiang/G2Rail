@@ -6,6 +6,8 @@ class GermanyTourPackage {
   final double sellPrice;    // calculated sell price = (priceEur * 0.9 + 2) rounded to 2 decimal places
   final List<String> images; // image URLs
   final String location;     // Berlin or Munich
+  final double latitude;     // tour location latitude
+  final double longitude;    // tour location longitude
 
   const GermanyTourPackage({
     required this.id,
@@ -15,6 +17,8 @@ class GermanyTourPackage {
     required this.sellPrice,
     required this.images,
     required this.location,
+    required this.latitude,
+    required this.longitude,
   });
 
   factory GermanyTourPackage.fromJson(Map<String, dynamic> json) {
@@ -33,6 +37,8 @@ class GermanyTourPackage {
       sellPrice: sellPrice,
       images: List<String>.from(json['images'] ?? []),
       location: json['location'] ?? '',
+      latitude: _parseToDouble(json['latitude']),
+      longitude: _parseToDouble(json['longitude']),
     );
   }
 
@@ -45,12 +51,24 @@ class GermanyTourPackage {
       'sell_price': sellPrice,
       'images': images,
       'location': location,
+      'latitude': latitude,
+      'longitude': longitude,
     };
+  }
+
+  static double _parseToDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
   }
 
   @override
   String toString() {
-    return 'GermanyTourPackage(id: $id, name: $name, location: $location, sellPrice: €${sellPrice.toStringAsFixed(2)})';
+    return 'GermanyTourPackage(id: $id, name: $name, location: $location, coordinates: ($latitude, $longitude), sellPrice: €${sellPrice.toStringAsFixed(2)})';
   }
 
   @override

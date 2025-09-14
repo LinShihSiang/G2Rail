@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../repos/germany_tours_repo.dart';
 import '../repos/models/germany_tour_package.dart';
 import '../widgets/germany_tour_card.dart';
+import 'product_page.dart';
 
 class GermanyProductsPage extends StatefulWidget {
   final GermanyToursRepo repo;
@@ -22,29 +23,9 @@ class _GermanyProductsPageState extends State<GermanyProductsPage> {
   }
 
   void _navigateToTimetable(GermanyTourPackage tour) {
-    // TODO: Navigate to TrainTimetableQueryPage when it's implemented
-    // For now, show a placeholder dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Selected Tour'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Package: ${tour.name}'),
-            const SizedBox(height: 8),
-            Text('Location: ${tour.location}'),
-            const SizedBox(height: 8),
-            Text('Sell Price: €${tour.sellPrice.toStringAsFixed(2)}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProductPage(package: tour),
       ),
     );
   }
