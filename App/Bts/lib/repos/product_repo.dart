@@ -18,10 +18,9 @@ class InMemoryProductRepo implements ProductRepo {
       ),
       Product(
         id: 'prod_germany_products',
-        name: 'Germany Products Page',
+        name: 'Germany Popular Packages',
         imageUrl: 'assets/images/germany_products.jpg', // placeholder
         propaganda: 'Explore authentic German travel experiences',
-        price: 35,
         currency: 'EUR',
       ),
     ];
