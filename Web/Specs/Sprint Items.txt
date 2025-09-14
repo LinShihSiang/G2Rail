@@ -1,0 +1,13 @@
+Sprint 1: Neuschwanstein Castle Germany Tickets
+	- Enable booking through the app with credit card payment
+	- Launch the landing page
+	- Release the app
+
+Sprint 2:  Germany Point-to-Point Tickets
+	- Enable booking of Germany point-to-point train tickets in the app
+	- Add stations to the landing page so that they can be searched.
+	
+Sprint 3: Journey Bundle
+	- Start selling the Neuschwanstein Castle Pass
+	- Combine more fixed-price products and routes
+	- Bundle train tickets within products

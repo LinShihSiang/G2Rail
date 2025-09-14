@@ -5,9 +5,8 @@ class AppManager {
         this.isAndroid = /Android/.test(navigator.userAgent);
         this.isMobile = this.isIOS || this.isAndroid;
 
-        // App Store URLs (replace with actual URLs)
-        this.appStoreURL = 'https://apps.apple.com/app/dodoman/id123456789';
-        this.playStoreURL = 'https://play.google.com/store/apps/details?id=com.dodoman.app';
+        // App Store URL
+        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing';
 
         // App URL schemes for opening installed apps
         this.appScheme = 'dodoman://';
@@ -32,15 +31,13 @@ class AppManager {
         });
 
         // Download buttons in app promotion section
-        document.getElementById('iosDownload').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.downloadApp('ios');
-        });
-
-        document.getElementById('androidDownload').addEventListener('click', (e) => {
-            e.preventDefault();
-            this.downloadApp('android');
-        });
+        const androidDownload = document.getElementById('androidDownload');
+        if (androidDownload) {
+            androidDownload.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.downloadApp();
+            });
+        }
 
         // Gallery CTA buttons
         document.querySelectorAll('.gallery-cta').forEach(btn => {
@@ -57,6 +54,9 @@ class AppManager {
 
         // Smooth scrolling
         this.setupSmoothScrolling();
+
+        // Language selector
+        this.setupLanguageSelector();
     }
 
     handleAppOpen() {
@@ -68,13 +68,8 @@ class AppManager {
     }
 
     handleAppDownload() {
-        if (this.isIOS) {
-            this.downloadApp('ios');
-        } else if (this.isAndroid) {
-            this.downloadApp('android');
-        } else {
-            this.showModal();
-        }
+        // 直接下載 APK
+        this.downloadApp();
     }
 
     tryOpenApp() {
@@ -83,24 +78,16 @@ class AppManager {
         // Try to open the app
         window.location.href = this.appScheme;
 
-        // If app doesn't open within 2 seconds, redirect to app store
+        // If app doesn't open within 2 seconds, redirect to app download
         setTimeout(() => {
             if (Date.now() - startTime < 2500) {
-                if (this.isIOS) {
-                    window.location.href = this.appStoreURL;
-                } else if (this.isAndroid) {
-                    window.location.href = this.playStoreURL;
-                }
+                window.location.href = this.appURL;
             }
         }, 2000);
     }
 
-    downloadApp(platform) {
-        if (platform === 'ios') {
-            window.open(this.appStoreURL, '_blank');
-        } else if (platform === 'android') {
-            window.open(this.playStoreURL, '_blank');
-        }
+    downloadApp() {
+        window.open(this.appURL, '_blank');
     }
 
     checkForInstalledApp() {
@@ -115,7 +102,6 @@ class AppManager {
     setupModal() {
         const modal = document.getElementById('appModal');
         const closeBtn = document.getElementById('modalClose');
-        const iosBtn = document.getElementById('modalIosBtn');
         const androidBtn = document.getElementById('modalAndroidBtn');
         const webBtn = document.getElementById('modalWebBtn');
 
@@ -123,15 +109,12 @@ class AppManager {
             this.hideModal();
         });
 
-        iosBtn.addEventListener('click', () => {
-            this.downloadApp('ios');
-            this.hideModal();
-        });
-
-        androidBtn.addEventListener('click', () => {
-            this.downloadApp('android');
-            this.hideModal();
-        });
+        if (androidBtn) {
+            androidBtn.addEventListener('click', () => {
+                this.downloadApp();
+                this.hideModal();
+            });
+        }
 
         webBtn.addEventListener('click', () => {
             this.hideModal();
@@ -185,6 +168,51 @@ class AppManager {
                     });
                 }
             });
+        });
+    }
+
+    setupLanguageSelector() {
+        const languageBtn = document.getElementById('languageBtn');
+        const languageDropdown = document.getElementById('languageDropdown');
+        const langOptions = document.querySelectorAll('.lang-option');
+
+        if (!languageBtn || !languageDropdown) return;
+
+        // Toggle dropdown
+        languageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            languageDropdown.classList.toggle('show');
+            languageBtn.classList.toggle('active');
+        });
+
+        // Handle language selection
+        langOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const selectedLang = option.getAttribute('data-lang');
+
+                if (window.i18n) {
+                    window.i18n.switchLanguage(selectedLang);
+                }
+
+                // Hide dropdown
+                languageDropdown.classList.remove('show');
+                languageBtn.classList.remove('active');
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            languageDropdown.classList.remove('show');
+            languageBtn.classList.remove('active');
+        });
+
+        // Close dropdown on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                languageDropdown.classList.remove('show');
+                languageBtn.classList.remove('active');
+            }
         });
     }
 }
@@ -369,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
     analytics.track('page_view', {
         page: 'landing_page',
         device_type: appManager.isMobile ? 'mobile' : 'desktop',
-        platform: appManager.isIOS ? 'ios' : appManager.isAndroid ? 'android' : 'web'
+        platform: appManager.isAndroid ? 'android' : 'web'
     });
 
     // Track app interactions
@@ -379,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.id === 'heroDownloadBtn') {
             analytics.track('app_download_attempt', {
                 source: e.target.className || e.target.id,
-                platform: appManager.isIOS ? 'ios' : appManager.isAndroid ? 'android' : 'web'
+                platform: appManager.isAndroid ? 'android' : 'web'
             });
         }
     });
