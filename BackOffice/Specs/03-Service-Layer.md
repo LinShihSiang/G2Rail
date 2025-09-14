@@ -20,8 +20,12 @@ namespace DoDoManBackOffice.Services.Interfaces
         // Query Methods
         Task<OrderListViewModel> GetOrdersAsync(FilterViewModel filter);
         Task<OrderDto?> GetOrderByIdAsync(int orderId);
-        Task<OrderDto?> GetOrderByNumberAsync(string orderNumber);
+        Task<OrderDto?> GetOrderByNumberAsync(int orderNumber); // N8N API uses integer order numbers
         Task<IEnumerable<OrderDto>> GetOrdersByCustomerAsync(int customerId);
+
+        // N8N API Integration
+        Task<IEnumerable<OrderDto>> GetOrdersFromN8NAsync();
+        Task<OrderDto?> SyncOrderFromN8NAsync(int orderNumber);
 
         // CRUD Operations
         Task<int> CreateOrderAsync(OrderDto orderDto);
@@ -33,7 +37,7 @@ namespace DoDoManBackOffice.Services.Interfaces
         Task<bool> UpdatePaymentStatusAsync(int orderId, PaymentStatus newStatus, string updatedBy, string? paymentReference = null);
 
         // Business Logic
-        Task<string> GenerateOrderNumberAsync();
+        Task<int> GenerateOrderNumberAsync(); // N8N API uses integer order numbers
         Task<bool> CanCancelOrderAsync(int orderId);
         Task<bool> CancelOrderAsync(int orderId, string cancelledBy, string reason);
         Task<decimal> CalculateOrderTotalAsync(int orderId);
@@ -702,10 +706,8 @@ namespace DoDoManBackOffice.Services.Implementations
         public OrderDtoValidator()
         {
             RuleFor(x => x.OrderNumber)
-                .NotEmpty()
-                .WithMessage("訂單編號不能為空")
-                .MaximumLength(20)
-                .WithMessage("訂單編號不能超過20個字元");
+                .GreaterThan(0)
+                .WithMessage("訂單編號必須大於0"); // N8N API uses integer order numbers
 
             RuleFor(x => x.CustomerName)
                 .NotEmpty()
