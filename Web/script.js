@@ -577,18 +577,39 @@ class PackageManager {
 
         packagesGrid.innerHTML = this.packages.map(pkg => {
             const i18n = window.i18n;
-            const title = i18n ? i18n.t(`package.${pkg.key}.title`) : `package.${pkg.key}.title`;
-            const subtitle = i18n ? i18n.t(`package.${pkg.key}.subtitle`) : `package.${pkg.key}.subtitle`;
-            const location = i18n ? i18n.t(`package.${pkg.key}.location`) : `package.${pkg.key}.location`;
-            const description = i18n ? i18n.t(`package.${pkg.key}.description`) : `package.${pkg.key}.description`;
-            const duration = i18n ? i18n.t(`package.${pkg.key}.duration`) : `package.${pkg.key}.duration`;
-            const badge = i18n ? i18n.t(`package.${pkg.key}.badge`) : `package.${pkg.key}.badge`;
-            const bookNow = i18n ? i18n.t('package.bookNow') : 'Book Now';
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`package.${pkg.key}.title`, pkg.key.charAt(0).toUpperCase() + pkg.key.slice(1));
+            const subtitle = safeTranslate(`package.${pkg.key}.subtitle`, 'Travel Experience');
+            const location = safeTranslate(`package.${pkg.key}.location`, 'Europe');
+            const description = safeTranslate(`package.${pkg.key}.description`, 'Discover amazing travel experiences with professional guides and memorable adventures.');
+            const duration = safeTranslate(`package.${pkg.key}.duration`, '1 Day');
+            const badge = safeTranslate(`package.${pkg.key}.badge`, 'Featured');
+            const bookNow = safeTranslate('package.bookNow', 'Book Now');
+
+            // Get fallback image based on package key
+            const getFallbackImage = (key) => {
+                const fallbackImages = {
+                    'rome': 'https://images.unsplash.com/photo-1531572753322-ad063cecc140?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'milan': 'https://images.unsplash.com/photo-1513581166391-887a96ddeafd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'munich': 'https://images.unsplash.com/photo-1595867818082-083862f3d630?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'vatican': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+                };
+                return fallbackImages[key] || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+            };
+
+            const imageUrl = pkg.image || getFallbackImage(pkg.key);
 
             // Generate features list
             const features = [];
             for (let i = 1; i <= pkg.featureCount; i++) {
-                const feature = i18n ? i18n.t(`package.${pkg.key}.feature${i}`) : `package.${pkg.key}.feature${i}`;
+                const feature = safeTranslate(`package.${pkg.key}.feature${i}`, `Feature ${i}`);
                 features.push(feature);
             }
 
@@ -603,7 +624,7 @@ class PackageManager {
             return `
                 <div class="package-card" data-package-id="${pkg.id}">
                     <div class="package-image">
-                        <img src="${pkg.image}" alt="${title}" loading="lazy" />
+                        <img src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'" />
                         <div class="package-badge ${badgeClass}">${badge}</div>
                         <div class="package-discount">-${pkg.discount}</div>
                     </div>
