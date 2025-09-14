@@ -1,7 +1,7 @@
 # 04. Controllers and API Implementation
 
 ## Overview
-實作 DoDoMan 後台管理系統的 MVC Controllers 和 API 端點，包括訂單管理介面和外部整合 API。
+實作 DoDoMan 後台管理系統的 MVC Controllers 和 API 端點，基於 N8N API 整合的無資料庫架構，專注於訂單資料展示和管理介面。
 
 ## Implementation Steps
 
@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Authorization;
 using DoDoManBackOffice.Services.Interfaces;
 using DoDoManBackOffice.Models.ViewModels;
 using DoDoManBackOffice.Models.DTOs;
-using DoDoManBackOffice.Models.Entities;
+using FluentValidation;
 
 namespace DoDoManBackOffice.Controllers
 {
@@ -23,11 +23,16 @@ namespace DoDoManBackOffice.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly ILogger<OrderController> _logger;
+        private readonly IValidator<FilterViewModel> _filterValidator;
 
-        public OrderController(IOrderService orderService, ILogger<OrderController> logger)
+        public OrderController(
+            IOrderService orderService,
+            ILogger<OrderController> logger,
+            IValidator<FilterViewModel> filterValidator)
         {
             _orderService = orderService;
             _logger = logger;
+            _filterValidator = filterValidator;
         }
 
         // GET: Order/Index
@@ -44,6 +49,17 @@ namespace DoDoManBackOffice.Controllers
                     filter.StartDate = DateTime.Today.AddDays(-30);
                 }
 
+                // Validate filter
+                var validationResult = await _filterValidator.ValidateAsync(filter);
+                if (!validationResult.IsValid)
+                {
+                    foreach (var error in validationResult.Errors)
+                    {
+                        ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
+                    }
+                    return View(new OrderListViewModel { Filter = filter });
+                }
+
                 var viewModel = await _orderService.GetOrdersAsync(filter);
                 return View(viewModel);
             }
@@ -56,11 +72,11 @@ namespace DoDoManBackOffice.Controllers
         }
 
         // GET: Order/Details/5
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(int orderNumber)
         {
             try
             {
-                var order = await _orderService.GetOrderByIdAsync(id);
+                var order = await _orderService.GetOrderByNumberAsync(orderNumber);
                 if (order == null)
                 {
                     return NotFound("找不到指定的訂單");
@@ -68,160 +84,21 @@ namespace DoDoManBackOffice.Controllers
 
                 var viewModel = new OrderDetailsViewModel
                 {
-                    Order = order,
-                    CanCancel = await _orderService.CanCancelOrderAsync(id)
+                    Order = order
                 };
 
                 return View(viewModel);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading order details for order {OrderId}", id);
+                _logger.LogError(ex, "Error loading order details for order {OrderNumber}", orderNumber);
                 TempData["Error"] = "載入訂單詳情時發生錯誤。";
                 return RedirectToAction(nameof(Index));
             }
         }
 
-        // GET: Order/Edit/5
-        public async Task<IActionResult> Edit(int id)
-        {
-            try
-            {
-                var order = await _orderService.GetOrderByIdAsync(id);
-                if (order == null)
-                {
-                    return NotFound();
-                }
-
-                var viewModel = new OrderEditViewModel
-                {
-                    OrderId = order.OrderId,
-                    OrderNumber = order.OrderNumber,
-                    CustomerName = order.CustomerName,
-                    CustomerEmail = order.CustomerEmail,
-                    PaymentMethod = order.PaymentMethod,
-                    PaymentStatus = order.PaymentStatus,
-                    OrderStatus = order.OrderStatus,
-                    TotalAmount = order.TotalAmount,
-                    Notes = order.Notes
-                };
-
-                return View(viewModel);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading edit form for order {OrderId}", id);
-                TempData["Error"] = "載入編輯表單時發生錯誤。";
-                return RedirectToAction(nameof(Index));
-            }
-        }
-
-        // POST: Order/Edit/5
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, OrderEditViewModel model)
-        {
-            if (id != model.OrderId)
-            {
-                return NotFound();
-            }
-
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
-            try
-            {
-                var currentUser = User.Identity?.Name ?? "System";
-
-                // Update order status if changed
-                if (model.OriginalOrderStatus != model.OrderStatus)
-                {
-                    await _orderService.UpdateOrderStatusAsync(
-                        model.OrderId,
-                        model.OrderStatus,
-                        currentUser,
-                        model.StatusChangeReason);
-                }
-
-                // Update payment status if changed
-                if (model.OriginalPaymentStatus != model.PaymentStatus)
-                {
-                    await _orderService.UpdatePaymentStatusAsync(
-                        model.OrderId,
-                        model.PaymentStatus,
-                        currentUser,
-                        model.PaymentReference);
-                }
-
-                TempData["Success"] = "訂單更新成功！";
-                return RedirectToAction(nameof(Details), new { id = model.OrderId });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating order {OrderId}", id);
-                ModelState.AddModelError("", "更新訂單時發生錯誤，請稍後再試。");
-                return View(model);
-            }
-        }
-
-        // POST: Order/UpdateStatus
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStatus(int orderId, OrderStatus newStatus, string? reason)
-        {
-            try
-            {
-                var currentUser = User.Identity?.Name ?? "System";
-                var result = await _orderService.UpdateOrderStatusAsync(orderId, newStatus, currentUser, reason);
-
-                if (result)
-                {
-                    return Json(new { success = true, message = "訂單狀態更新成功" });
-                }
-                else
-                {
-                    return Json(new { success = false, message = "訂單狀態更新失敗" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating order status for order {OrderId}", orderId);
-                return Json(new { success = false, message = "更新訂單狀態時發生錯誤" });
-            }
-        }
-
-        // POST: Order/Cancel
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Cancel(int orderId, string reason)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(reason))
-                {
-                    return Json(new { success = false, message = "取消原因不能為空" });
-                }
-
-                var currentUser = User.Identity?.Name ?? "System";
-                var result = await _orderService.CancelOrderAsync(orderId, currentUser, reason);
-
-                if (result)
-                {
-                    return Json(new { success = true, message = "訂單取消成功" });
-                }
-                else
-                {
-                    return Json(new { success = false, message = "無法取消此訂單" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error cancelling order {OrderId}", orderId);
-                return Json(new { success = false, message = "取消訂單時發生錯誤" });
-            }
-        }
+        // Note: Read-Only System - No Edit/Update Operations
+        // This is a reporting/view-only system for N8N data
 
         // GET: Order/Search (AJAX)
         [HttpGet]
@@ -235,7 +112,7 @@ namespace DoDoManBackOffice.Controllers
                 }
 
                 var suggestions = await _orderService.GetOrderNumberSuggestionsAsync(term);
-                var results = suggestions.Select(s => new { value = s, label = s }).ToList();
+                var results = suggestions.Select(s => new { value = s, label = s.ToString() }).ToList();
 
                 return Json(results);
             }
@@ -277,19 +154,15 @@ namespace DoDoManBackOffice.Controllers
         private string GenerateCsv(IEnumerable<OrderViewModel> orders)
         {
             var csv = new System.Text.StringBuilder();
-            csv.AppendLine("訂單編號,訂單日期,客戶姓名,客戶Email,支付方式,支付狀態,訂單狀態,總金額,備註");
+            csv.AppendLine("訂單編號,訂單日期,客戶姓名,支付方式,支付狀態");
 
             foreach (var order in orders)
             {
                 csv.AppendLine($"\"{order.OrderNumber}\"," +
                               $"\"{order.OrderDate:yyyy-MM-dd HH:mm}\"," +
                               $"\"{order.CustomerName}\"," +
-                              $"\"{order.CustomerEmail}\"," +
                               $"\"{order.PaymentMethod}\"," +
-                              $"\"{order.PaymentStatusDisplay}\"," +
-                              $"\"{order.OrderStatusDisplay}\"," +
-                              $"\"{order.TotalAmount:N2}\"," +
-                              $"\"{order.Notes?.Replace("\"", "\"\"")}\"");
+                              $"\"{order.PaymentStatusDisplay}\"");
             }
 
             return csv.ToString();
@@ -299,48 +172,7 @@ namespace DoDoManBackOffice.Controllers
     // Supporting ViewModels
     public class OrderDetailsViewModel
     {
-        public OrderDto Order { get; set; } = null!;
-        public bool CanCancel { get; set; }
-        public List<OrderStatusHistory> StatusHistory { get; set; } = new();
-    }
-
-    public class OrderEditViewModel
-    {
-        public int OrderId { get; set; }
-
-        [Display(Name = "訂單編號")]
-        public string OrderNumber { get; set; } = string.Empty;
-
-        [Display(Name = "客戶姓名")]
-        public string CustomerName { get; set; } = string.Empty;
-
-        [Display(Name = "客戶Email")]
-        public string CustomerEmail { get; set; } = string.Empty;
-
-        [Display(Name = "支付方式")]
-        public string PaymentMethod { get; set; } = string.Empty;
-
-        [Display(Name = "支付狀態")]
-        public PaymentStatus PaymentStatus { get; set; }
-
-        [Display(Name = "訂單狀態")]
-        public OrderStatus OrderStatus { get; set; }
-
-        [Display(Name = "總金額")]
-        public decimal TotalAmount { get; set; }
-
-        [Display(Name = "備註")]
-        public string? Notes { get; set; }
-
-        // Hidden fields for tracking changes
-        public PaymentStatus OriginalPaymentStatus { get; set; }
-        public OrderStatus OriginalOrderStatus { get; set; }
-
-        [Display(Name = "狀態變更原因")]
-        public string? StatusChangeReason { get; set; }
-
-        [Display(Name = "付款參考編號")]
-        public string? PaymentReference { get; set; }
+        public OrderViewModel Order { get; set; } = null!;
     }
 }
 ```
@@ -398,11 +230,9 @@ namespace DoDoManBackOffice.Controllers
                 var recentOrders = await _orderService.GetOrdersAsync(recentOrdersFilter);
 
                 viewModel.TodayOrderCount = todaySummary.TotalOrders;
-                viewModel.TodayRevenue = todaySummary.TotalRevenue;
                 viewModel.MonthOrderCount = monthSummary.TotalOrders;
-                viewModel.MonthRevenue = monthSummary.TotalRevenue;
                 viewModel.PendingOrderCount = todaySummary.PendingOrders;
-                viewModel.CompletedOrderCount = todaySummary.CompletedOrders;
+                viewModel.SuccessfulOrderCount = todaySummary.SuccessfulOrders;
 
                 viewModel.StatusCounts = statusCounts.ToList();
                 viewModel.PaymentMethodSummary = paymentSummary.ToList();
@@ -447,8 +277,7 @@ namespace DoDoManBackOffice.Controllers
                     .Select(g => new
                     {
                         date = g.Key.ToString("yyyy-MM-dd"),
-                        orders = g.Count(),
-                        revenue = g.Sum(o => o.TotalAmount)
+                        orders = g.Count()
                     })
                     .ToList();
 
@@ -466,15 +295,13 @@ namespace DoDoManBackOffice.Controllers
     {
         // Today's Stats
         public int TodayOrderCount { get; set; }
-        public decimal TodayRevenue { get; set; }
 
         // This Month's Stats
         public int MonthOrderCount { get; set; }
-        public decimal MonthRevenue { get; set; }
 
         // Status Counts
         public int PendingOrderCount { get; set; }
-        public int CompletedOrderCount { get; set; }
+        public int SuccessfulOrderCount { get; set; }
 
         // Detailed Statistics
         public List<OrderStatusCountDto> StatusCounts { get; set; } = new();
@@ -494,7 +321,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using DoDoManBackOffice.Services.Interfaces;
 using DoDoManBackOffice.Models.DTOs;
-using DoDoManBackOffice.Models.Entities;
+using DoDoManBackOffice.Models.ViewModels;
 using System.ComponentModel.DataAnnotations;
 
 namespace DoDoManBackOffice.Controllers
@@ -504,23 +331,23 @@ namespace DoDoManBackOffice.Controllers
     public class ApiController : ControllerBase
     {
         private readonly IOrderService _orderService;
-        private readonly IN8NIntegrationService _n8nService;
+        private readonly IN8NApiService _n8nApiService;
         private readonly ILogger<ApiController> _logger;
 
         public ApiController(
             IOrderService orderService,
-            IN8NIntegrationService n8nService,
+            IN8NApiService n8nApiService,
             ILogger<ApiController> logger)
         {
             _orderService = orderService;
-            _n8nService = n8nService;
+            _n8nApiService = n8nApiService;
             _logger = logger;
         }
 
         // GET: api/Api/orders
         [HttpGet("orders")]
         [Authorize(Roles = "Admin,ApiUser")]
-        public async Task<ActionResult<ApiResponse<IEnumerable<OrderDto>>>> GetOrders(
+        public async Task<ActionResult<ApiResponse<IEnumerable<OrderViewModel>>>> GetOrders(
             [FromQuery] ApiOrderFilterRequest request)
         {
             try
@@ -532,30 +359,16 @@ namespace DoDoManBackOffice.Controllers
                     OrderNumber = request.OrderNumber,
                     PaymentMethod = request.PaymentMethod,
                     PaymentStatus = request.PaymentStatus,
-                    OrderStatus = request.OrderStatus,
                     Page = request.Page,
                     PageSize = Math.Min(request.PageSize, 100) // Limit max page size
                 };
 
                 var result = await _orderService.GetOrdersAsync(filter);
-                var orders = result.Orders.Select(o => new OrderDto
-                {
-                    OrderId = o.OrderId,
-                    OrderNumber = o.OrderNumber,
-                    OrderDate = o.OrderDate,
-                    CustomerName = o.CustomerName,
-                    CustomerEmail = o.CustomerEmail,
-                    TotalAmount = o.TotalAmount,
-                    PaymentMethod = o.PaymentMethod,
-                    PaymentStatus = o.PaymentStatus,
-                    OrderStatus = o.OrderStatus,
-                    Notes = o.Notes
-                });
 
-                return Ok(new ApiResponse<IEnumerable<OrderDto>>
+                return Ok(new ApiResponse<IEnumerable<OrderViewModel>>
                 {
                     Success = true,
-                    Data = orders,
+                    Data = result.Orders,
                     TotalCount = result.Pagination.TotalItems,
                     Page = result.Pagination.CurrentPage,
                     PageSize = result.Pagination.PageSize,
@@ -565,7 +378,7 @@ namespace DoDoManBackOffice.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving orders via API");
-                return StatusCode(500, new ApiResponse<IEnumerable<OrderDto>>
+                return StatusCode(500, new ApiResponse<IEnumerable<OrderViewModel>>
                 {
                     Success = false,
                     Message = "Internal server error occurred while retrieving orders"
@@ -573,24 +386,24 @@ namespace DoDoManBackOffice.Controllers
             }
         }
 
-        // GET: api/Api/orders/{id}
-        [HttpGet("orders/{id}")]
+        // GET: api/Api/orders/{orderNumber}
+        [HttpGet("orders/{orderNumber}")]
         [Authorize(Roles = "Admin,ApiUser")]
-        public async Task<ActionResult<ApiResponse<OrderDto>>> GetOrder(int id)
+        public async Task<ActionResult<ApiResponse<OrderViewModel>>> GetOrder(int orderNumber)
         {
             try
             {
-                var order = await _orderService.GetOrderByIdAsync(id);
+                var order = await _orderService.GetOrderByNumberAsync(orderNumber);
                 if (order == null)
                 {
-                    return NotFound(new ApiResponse<OrderDto>
+                    return NotFound(new ApiResponse<OrderViewModel>
                     {
                         Success = false,
-                        Message = $"Order with ID {id} not found"
+                        Message = $"Order with number {orderNumber} not found"
                     });
                 }
 
-                return Ok(new ApiResponse<OrderDto>
+                return Ok(new ApiResponse<OrderViewModel>
                 {
                     Success = true,
                     Data = order,
@@ -599,8 +412,8 @@ namespace DoDoManBackOffice.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving order {OrderId} via API", id);
-                return StatusCode(500, new ApiResponse<OrderDto>
+                _logger.LogError(ex, "Error retrieving order {OrderNumber} via API", orderNumber);
+                return StatusCode(500, new ApiResponse<OrderViewModel>
                 {
                     Success = false,
                     Message = "Internal server error occurred while retrieving order"
@@ -608,99 +421,23 @@ namespace DoDoManBackOffice.Controllers
             }
         }
 
-        // PUT: api/Api/orders/{id}/status
-        [HttpPut("orders/{id}/status")]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<ApiResponse<object>>> UpdateOrderStatus(
-            int id,
-            [FromBody] UpdateOrderStatusRequest request)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(new ApiResponse<object>
-                    {
-                        Success = false,
-                        Message = "Invalid request data",
-                        Errors = ModelState.Values
-                            .SelectMany(v => v.Errors)
-                            .Select(e => e.ErrorMessage)
-                            .ToList()
-                    });
-                }
-
-                var result = await _orderService.UpdateOrderStatusAsync(
-                    id,
-                    request.NewStatus,
-                    request.UpdatedBy ?? "API",
-                    request.Reason);
-
-                if (result)
-                {
-                    return Ok(new ApiResponse<object>
-                    {
-                        Success = true,
-                        Message = "Order status updated successfully"
-                    });
-                }
-                else
-                {
-                    return BadRequest(new ApiResponse<object>
-                    {
-                        Success = false,
-                        Message = "Failed to update order status"
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating order status for order {OrderId} via API", id);
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "Internal server error occurred while updating order status"
-                });
-            }
-        }
+        // Note: Read-Only API - No status update operations
+        // This system displays N8N data and does not modify source data
 
         // POST: api/Api/webhook/n8n
         [HttpPost("webhook/n8n")]
-        [AllowAnonymous] // Validate via webhook signature instead
+        [AllowAnonymous] // Optional: For cache invalidation notifications from N8N
         public async Task<IActionResult> N8NWebhook([FromBody] N8NWebhookRequest request)
         {
             try
             {
-                // Validate webhook signature
-                var signature = Request.Headers["X-N8N-Signature"].FirstOrDefault();
-                if (string.IsNullOrEmpty(signature))
-                {
-                    return BadRequest("Missing webhook signature");
-                }
+                // Simple webhook receiver for cache invalidation
+                // When N8N data changes, clear relevant caches
+                _logger.LogInformation("Received N8N webhook: {Type}", request.Type);
 
-                var payload = await new StreamReader(Request.Body).ReadToEndAsync();
-                if (!_n8nService.ValidateWebhookSignature(payload, signature))
-                {
-                    return Unauthorized("Invalid webhook signature");
-                }
-
-                // Process webhook based on type
-                var result = request.Type switch
-                {
-                    "order.status.updated" => await ProcessOrderStatusWebhook(request),
-                    "payment.processed" => await ProcessPaymentWebhook(request),
-                    "customer.notification.sent" => await ProcessNotificationWebhook(request),
-                    _ => false
-                };
-
-                if (result)
-                {
-                    return Ok(new { success = true, message = "Webhook processed successfully" });
-                }
-                else
-                {
-                    return BadRequest(new { success = false, message = "Failed to process webhook" });
-                }
+                // For a read-only system, we mainly use this to invalidate caches
+                // Implementation would depend on specific caching strategy
+                return Ok(new { success = true, message = "Webhook received" });
             }
             catch (Exception ex)
             {
@@ -738,30 +475,7 @@ namespace DoDoManBackOffice.Controllers
             }
         }
 
-        #region Private Helper Methods
-
-        private async Task<bool> ProcessOrderStatusWebhook(N8NWebhookRequest request)
-        {
-            // Process order status update from N8N
-            // Implementation depends on specific N8N workflow requirements
-            return await Task.FromResult(true);
-        }
-
-        private async Task<bool> ProcessPaymentWebhook(N8NWebhookRequest request)
-        {
-            // Process payment notification from N8N
-            // Implementation depends on specific payment processing workflow
-            return await Task.FromResult(true);
-        }
-
-        private async Task<bool> ProcessNotificationWebhook(N8NWebhookRequest request)
-        {
-            // Process notification confirmation from N8N
-            // Implementation depends on specific notification workflow
-            return await Task.FromResult(true);
-        }
-
-        #endregion
+        // Additional API endpoints can be added here as needed
     }
 
     #region API Request/Response Models
@@ -782,23 +496,12 @@ namespace DoDoManBackOffice.Controllers
     {
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
-        public string? OrderNumber { get; set; }
+        public int? OrderNumber { get; set; }
+        public string? CustomerName { get; set; }
         public string? PaymentMethod { get; set; }
-        public PaymentStatus? PaymentStatus { get; set; }
-        public OrderStatus? OrderStatus { get; set; }
+        public string? PaymentStatus { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
-    }
-
-    public class UpdateOrderStatusRequest
-    {
-        [Required]
-        public OrderStatus NewStatus { get; set; }
-
-        public string? UpdatedBy { get; set; }
-
-        [StringLength(500)]
-        public string? Reason { get; set; }
     }
 
     public class N8NWebhookRequest
@@ -956,13 +659,38 @@ namespace DoDoManBackOffice.Filters
 
 ## Verification Steps
 1. Build the controllers: `dotnet build`
-2. Test web interface navigation
+2. Test web interface navigation with N8N data
 3. Test API endpoints with Postman/curl
 4. Verify authentication and authorization
 5. Test error handling and logging
-6. Validate model binding and validation
+6. Validate N8N API integration
+7. Test filtering and pagination with N8N data
+8. Verify cache invalidation webhooks
+
+## Key Changes from Original Database Approach
+
+### Architecture Changes
+1. **Read-Only Controllers**: Removed all CRUD operations, focusing on data display and filtering
+2. **N8N Data Integration**: Controllers now work with `OrderViewModel` directly from N8N API responses
+3. **Simplified API**: Removed status update endpoints since this is a reporting system
+4. **Order Identification**: Changed from database IDs to N8N order numbers
+5. **Validation Integration**: Added FluentValidation for request validation
+
+### Controller Method Changes
+1. **Index Method**: Uses `FilterViewModel` with N8N API service
+2. **Details Method**: Uses order number instead of database ID
+3. **Export Method**: Simplified CSV export with N8N data fields
+4. **API Endpoints**: Return `OrderViewModel` instead of `OrderDto`
+5. **Dashboard**: Displays N8N-based statistics and summaries
+
+### Data Flow Changes
+1. **Controller → Service → N8N API**: Direct data flow from N8N
+2. **Caching Layer**: Controllers benefit from service-level caching
+3. **Client-side Processing**: Filtering and pagination handled in-memory
+4. **Webhook Support**: Optional cache invalidation from N8N updates
 
 ## Next Steps
 After completing the controllers, proceed to:
 - 05-UI-Views.md for Razor views and frontend implementation
 - 06-N8N-Integration.md for detailed N8N workflow integration
+- Implementation of the actual controller classes based on these specifications
