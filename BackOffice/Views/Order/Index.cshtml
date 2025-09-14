@@ -1,0 +1,247 @@
+@model DoDoManBackOffice.Models.ViewModels.OrderListViewModel
+@{
+    ViewData["Title"] = "Order Management";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>@Model.TotalOrders</h4>
+                        <p class="card-text">Total Orders</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-receipt fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>@Model.PendingOrders</h4>
+                        <p class="card-text">Pending Payment</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock-history fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>@Model.SuccessfulOrders</h4>
+                        <p class="card-text">Paid</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<partial name="_FilterPartial" model="@Model.Filter" />
+
+<!-- Orders Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">Order List</h6>
+        <div class="text-muted small">
+            Total @Model.Pagination.TotalItems items, Page @Model.Pagination.CurrentPage
+        </div>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Orders.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Order Number</th>
+                            <th>Order Date</th>
+                            <th>Customer Name</th>
+                            <th>Payment Method</th>
+                            <th>Payment Status</th>
+                            <th width="120">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model.Orders)
+                        {
+                            <tr>
+                                <td>
+                                    <a href="@Url.Action("Details", new { orderNumber = order.OrderNumber })"
+                                       class="text-decoration-none fw-bold">
+                                        #@order.OrderNumber
+                                    </a>
+                                </td>
+                                <td>@order.OrderDate.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <div>@order.CustomerName</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        @order.PaymentMethod
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="@order.PaymentStatusCssClass">
+                                        @order.PaymentStatusDisplay
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                type="button" data-bs-toggle="dropdown">
+                                            Actions
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="@Url.Action("Details", new { orderNumber = order.OrderNumber })">
+                                                    <i class="bi bi-eye me-2"></i>View Details
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-inbox display-4 text-muted"></i>
+                <p class="text-muted mt-3">No orders found matching the criteria</p>
+                <a href="@Url.Action("Index")" class="btn btn-primary">Reset Filters</a>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Pagination -->
+@if (Model.Pagination.TotalPages > 1)
+{
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <!-- Previous Page -->
+            <li class="page-item @(!Model.Pagination.HasPreviousPage ? "disabled" : "")">
+                <a class="page-link"
+                   href="@(Model.Pagination.HasPreviousPage ? Url.Action("Index", new {
+                       page = Model.Pagination.CurrentPage - 1,
+                       pageSize = Model.Filter.PageSize,
+                       startDate = Model.Filter.StartDate?.ToString("yyyy-MM-dd"),
+                       endDate = Model.Filter.EndDate?.ToString("yyyy-MM-dd"),
+                       orderNumber = Model.Filter.OrderNumber,
+                       customerName = Model.Filter.CustomerName,
+                       paymentMethod = Model.Filter.PaymentMethod,
+                       paymentStatus = Model.Filter.PaymentStatus
+                   }) : "#")">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+
+            <!-- Page Numbers -->
+            @{
+                var startPage = Math.Max(1, Model.Pagination.CurrentPage - 2);
+                var endPage = Math.Min(Model.Pagination.TotalPages, Model.Pagination.CurrentPage + 2);
+            }
+
+            @if (startPage > 1)
+            {
+                <li class="page-item">
+                    <a class="page-link" href="@Url.Action("Index", new { page = 1 })">1</a>
+                </li>
+                @if (startPage > 2)
+                {
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                }
+            }
+
+            @for (int i = startPage; i <= endPage; i++)
+            {
+                <li class="page-item @(i == Model.Pagination.CurrentPage ? "active" : "")">
+                    <a class="page-link"
+                       href="@Url.Action("Index", new {
+                           page = i,
+                           pageSize = Model.Filter.PageSize,
+                           startDate = Model.Filter.StartDate?.ToString("yyyy-MM-dd"),
+                           endDate = Model.Filter.EndDate?.ToString("yyyy-MM-dd"),
+                           orderNumber = Model.Filter.OrderNumber,
+                           customerName = Model.Filter.CustomerName,
+                           paymentMethod = Model.Filter.PaymentMethod,
+                           paymentStatus = Model.Filter.PaymentStatus
+                       })">
+                        @i
+                    </a>
+                </li>
+            }
+
+            @if (endPage < Model.Pagination.TotalPages)
+            {
+                @if (endPage < Model.Pagination.TotalPages - 1)
+                {
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                }
+                <li class="page-item">
+                    <a class="page-link" href="@Url.Action("Index", new { page = Model.Pagination.TotalPages })">
+                        @Model.Pagination.TotalPages
+                    </a>
+                </li>
+            }
+
+            <!-- Next Page -->
+            <li class="page-item @(!Model.Pagination.HasNextPage ? "disabled" : "")">
+                <a class="page-link"
+                   href="@(Model.Pagination.HasNextPage ? Url.Action("Index", new {
+                       page = Model.Pagination.CurrentPage + 1,
+                       pageSize = Model.Filter.PageSize,
+                       startDate = Model.Filter.StartDate?.ToString("yyyy-MM-dd"),
+                       endDate = Model.Filter.EndDate?.ToString("yyyy-MM-dd"),
+                       orderNumber = Model.Filter.OrderNumber,
+                       customerName = Model.Filter.CustomerName,
+                       paymentMethod = Model.Filter.PaymentMethod,
+                       paymentStatus = Model.Filter.PaymentStatus
+                   }) : "#")">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Pagination Info -->
+        <div class="text-center text-muted small mt-2">
+            Showing @Model.Pagination.StartItem - @Model.Pagination.EndItem of @Model.Pagination.TotalItems items
+        </div>
+    </nav>
+}
+
+@section Scripts {
+    <script>
+        // Initialize auto-refresh for real-time data from N8N
+        setInterval(function() {
+            // Optional: Auto-refresh data every 5 minutes
+            // location.reload();
+        }, 300000);
+    </script>
+}
