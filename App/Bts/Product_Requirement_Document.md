@@ -52,8 +52,7 @@ Main features include:\
 
 ### Home Page
 
--   Step 1: List all available travel products\
--   Step 2: Navigate to product detail page
+-   Step 1: List all available travel products
 
 ### Product Page - Schloss Neuschwanstein
 
@@ -61,8 +60,14 @@ Main features include:\
     passenger info)\
 -   Step 2: Payment flow (integrate with third-party payment APIs such
     as Stripe/PayPal)\
--   Step 3: After successful payment, send confirmation email\
 -   Step 4: Display order confirmation page with payment details
+
+### Product Page – Germany Best-Selling Tickets
+
+-   Step 1: Ticket Listing Page
+-   Step 2: Train Timetable Query Page
+-   Step 3: Ticket Booking Page
+-   Step 4: Completion Page
 
 ------------------------------------------------------------------------
 

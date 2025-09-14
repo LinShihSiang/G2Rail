@@ -514,7 +514,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
       }
 
       // Step 2: Send Email Confirmation
-      if (mounted) {
+      if (mounted) { 
         setState(() {
           _isSendingEmail = true;
         });
