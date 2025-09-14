@@ -12,7 +12,7 @@ class InMemoryProductRepo implements ProductRepo {
         id: 'prod_schloss_neuschwanstein',
         name: 'Schloss Neuschwanstein',
         imageUrl: 'assets/images/schloss_neuschwanstein.jpg', // placeholder
-        propaganda: '95折優惠，18歲以下免費同行',
+        propaganda: '5% discount, free admission for companions under 18.',
         price: 21,
         currency: 'EUR',
       ),

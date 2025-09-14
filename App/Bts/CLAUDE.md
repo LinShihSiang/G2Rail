@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Flutter** cross-platform travel booking application (g2railsample) that integrates with G2Rail APIs and Stripe payment processing. The app focuses on train travel booking between European cities with integrated payment flows.
+This is a **Flutter** cross-platform travel booking application (g2railsample) that integrates with G2Rail APIs and Stripe payment processing. The app focuses on European travel packages and train booking with integrated payment flows.
 
 ## Development Commands
 
@@ -14,8 +14,6 @@ This is a **Flutter** cross-platform travel booking application (g2railsample) t
 - `flutter build apk --release` - Build release Android APK
 - `flutter build ios` - Build iOS app (macOS only)
 - `flutter build ios --release` - Build release iOS app (macOS only)
-- `flutter test` - Run all tests
-- `flutter test test/widget_test.dart` - Run specific test file
 - `flutter analyze` - Run static analysis/linting
 - `flutter clean` - Clean build artifacts
 - `flutter pub get` - Install dependencies
@@ -29,94 +27,138 @@ This is a **Flutter** cross-platform travel booking application (g2railsample) t
 
 ## Architecture
 
-The current codebase follows a basic Flutter structure but is planned to evolve into a layered architecture as defined in the Product Requirements Document:
+The project implements a layered architecture with **MVVM pattern** for state management:
 
-### Project Structure (per PRD)
+### Actual Project Structure
 ```
 lib/
-├── pages/              # UI pages (Flutter Widgets)
-│   ├── home_page.dart           # Travel products listing
-│   ├── product_page.dart        # Product details (e.g., Schloss Neuschwanstein)
+├── main.dart                    # App entry point with dependency injection
+├── pages/                       # UI pages (Flutter Widgets)
+│   ├── home_page.dart           # Product catalog listing
+│   ├── product_page.dart        # Generic product details
+│   ├── product_schloss_neuschwanstein_page.dart  # Specific product page
+│   ├── germany_products_page.dart               # Germany packages page
 │   ├── order_page.dart          # Booking form with passenger info
 │   ├── payment_page.dart        # Payment processing page
 │   └── confirmation_page.dart   # Order confirmation & receipt
-├── services/           # Handle interaction events / call repos
+├── services/                    # Business logic layer
 │   ├── order_service.dart       # Order management and travel search
 │   ├── payment_service.dart     # Payment processing logic
-│   └── email_service.dart       # Email confirmation handling
-├── repos/              # API integration logic
+│   ├── email_service.dart       # Email confirmation handling
+│   ├── station_service.dart     # Station/location services
+│   └── price_formatter.dart     # Price formatting utilities
+├── view_models/                 # MVVM ViewModels for state management
+│   └── order_step1_view_model.dart  # Order form state management
+├── repos/                       # Data access layer
+│   ├── product_repo.dart        # Product catalog (in-memory)
 │   ├── travel_repo.dart         # G2Rail API integration
 │   ├── payment_repo.dart        # Stripe payment integration
-│   └── email_repo.dart          # Email service integration
-├── models/             # Data Objects (per PRD - not yet implemented)
-│   └── product_model.dart       # Product data models
-└── main.dart           # App entry point
+│   ├── email_repo.dart          # Email service integration
+│   ├── germany_tours_repo.dart  # Germany tour packages (JSON data)
+│   └── order_draft_repo.dart    # Order draft persistence
+├── models/                      # Data models and state objects
+│   ├── order_draft.dart         # Order draft data model
+│   └── order_step1_state.dart   # Order form state model
+├── repos/models/                # Repository-specific models
+│   ├── product.dart             # Product data model
+│   ├── germany_tour_package.dart  # Germany tour package model
+│   └── german_station.dart      # German station model
+├── widgets/                     # Reusable UI components
+│   └── germany_tour_card.dart   # Tour package card widget
+└── example_germany_integration.dart  # Integration example
 ```
+
+### Data Sources
+- `data/` - JSON files containing tour packages and station data
+  - `Italy_Germany_tours.json` - Tour package data
+  - `80_Germany.json` - German station data
+  - `tours.json` - Additional tour data
 
 **Layer Responsibilities:**
 - **pages**: UI layouts, display content, bind user actions
-- **services**: Handle UI interaction logic, button events, call repos, manage state
-- **repos**: Third-party API integration (travel products, payments, email, train schedules)
-- **models**: Data objects and model classes for type safety and data structure
+- **view_models**: MVVM pattern for state management, business logic for UI
+- **services**: Application services, coordinate between repos and UI
+- **repos**: Data access layer - APIs, local storage, JSON assets
+- **models**: Data structures and state objects
+- **widgets**: Reusable UI components
 
 ## Key Integrations
 
 ### G2Rail API (travel_repo.dart)
 - Base URL: `http://alpha-api.g2rail.com`
-- Requires API key and secret (currently placeholder values in order_service.dart)
+- Requires API key and secret (placeholder values in order_service.dart)
 - Uses MD5-based authorization with timestamp and parameter sorting
-- Authorization process: sorts parameters alphabetically, concatenates with secret, generates MD5 hash
-- Supports train search between European cities with passenger type breakdowns
-- Methods: `getSolutions(from, to, date, time, adult, child, junior, senior, infant)`, `getAsyncResult(asyncKey)`
-- Returns JSON with solutions array containing train options and pricing
+- Authorization: sorts parameters alphabetically, concatenates with secret, generates MD5 hash
+- Methods: `getSolutions()`, `getAsyncResult(asyncKey)` for train search
+- Returns JSON with train options and pricing by passenger type
 
 ### Stripe Payment Processing (payment_repo.dart)
 - Test environment with hardcoded keys
-- Supports payment sheets UI for seamless checkout
+- Payment sheets UI for seamless checkout
 - Methods: `processPaymentWithSheet()`, `createPaymentIntent()`, `processPayment()`
 
-### Email Notifications (email_repo.dart)
-- Placeholder implementation for booking confirmations
-- Configurable email service provider (SendGrid, AWS SES, etc.)
-- Method: `sendConfirmationEmail()`
+### Local Data Sources
+- **GermanyToursRepo**: Loads tour packages from `data/Italy_Germany_tours.json`
+- **Station Services**: German station data from `data/80_Germany.json`
+- **ProductRepo**: In-memory product catalog with Schloss Neuschwanstein and Germany packages
 
 ## Dependencies
 
 ### Core Dependencies
+- `flutter_stripe: ^12.0.2` - Stripe payment integration (updated version)
 - `http: ^1.5.0` - HTTP client for API calls
-- `flutter_stripe: ^11.1.0` - Stripe payment integration
 - `crypto: ^3.0.6` - Cryptographic functions for API auth
+- `provider: ^6.1.5+1` - State management for MVVM pattern
+- `flutter_typeahead: ^5.2.0` - Autocomplete input widgets
+- `flutter_email_sender: ^8.0.0` - Email functionality
+- `excel: ^4.0.6` - Excel file processing
 - `intl: ^0.20.2` - Internationalization support
 
 ### Development
-- `flutter_lints: ^5.0.0` - Linting rules
-- Uses `package:flutter_lints/flutter.yaml` for recommended lint rules
+- `flutter_lints: ^5.0.0` - Linting rules using `package:flutter_lints/flutter.yaml`
+
+## Architecture Patterns
+
+### MVVM Pattern
+- **View Models** extend `ChangeNotifier` for reactive state management
+- **OrderStep1ViewModel** manages order form state with companion management
+- State objects like `OrderStep1State` contain UI state data
+- Views listen to ViewModel changes via `provider` package
+
+### Repository Pattern
+- Abstract base classes define contracts (e.g., `ProductRepo`)
+- Concrete implementations handle specific data sources
+- **InMemoryProductRepo** for catalog, **GermanyToursRepo** for JSON assets
+- Clear separation between data access and business logic
+
+### Dependency Injection
+- Constructor injection in `main.dart`
+- Services instantiate their own repo dependencies
+- HTTP client configuration centralized in services
 
 ## Security Considerations
 
-- API keys and secrets are currently hardcoded in source files - these should be moved to environment variables or secure configuration
-- SSL certificate validation is disabled in HTTP client (`badCertificateCallback`)
-- Stripe keys are test keys and should be replaced with production keys for deployment
-
-## Environment Requirements
-
-- **Flutter SDK**: 3.5.0+ (current pubspec: ^3.9.0 Dart SDK)
-- **Android**: API level 30+ (Android 10+)
-- **iOS**: 14.0+ (macOS development only)
-- **Development**: Uses `package:flutter_lints/flutter.yaml` for linting rules
+- API keys hardcoded in `order_service.dart` - move to environment variables
+- SSL validation disabled via `badCertificateCallback` - fix for production
+- Test Stripe keys - replace with production keys for deployment
 
 ## Development Notes
 
-- Uses Material Design for UI components
-- Multi-language support (EN/ZH) planned but not yet implemented
-- Currently in prototype phase with basic payment flow working
-- SSL certificate validation is currently disabled for development (`badCertificateCallback`)
-- No models layer implemented yet (mentioned in PRD but not in current structure)
+- Uses Material Design 3 (`useMaterial3: true`)
+- Multi-language support (EN/ZH) planned but not implemented
+- Flutter SDK requirement: ^3.9.0 (Dart SDK)
+- Target platforms: Android 10+ / iOS 14+
+- Assets include images and JSON data files
 
-## Important Implementation Details
+## Key Implementation Details
 
-### Project Structure Deviation from PRD
-The actual implementation matches the documented structure in this file, but the PRD mentions a `models/` directory that doesn't exist yet. Future development should consider adding data models for better type safety and code organization.
+### G2Rail Authentication Flow
+The `TravelRepo.getAuthorizationHeaders()` method implements the specific MD5-based auth:
+1. Sort parameters alphabetically by key
+2. Concatenate sorted params with secret key
+3. Generate MD5 hash for authorization header
 
-### Authentication Flow
-The G2Rail API uses a specific authentication pattern where parameters are sorted alphabetically, concatenated with the secret key, and then MD5 hashed. The `TravelRepo.getAuthorizationHeaders()` method handles this complexity.
+### State Management Pattern
+- **OrderStep1ViewModel** manages companion lists, validation, derived counts
+- **OrderDraft** models provide JSON serialization for persistence
+- **ChangeNotifier** pattern enables reactive UI updates
