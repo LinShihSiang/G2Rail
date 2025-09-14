@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "mcp__serena__activate_project",
-      "mcp__serena__read_file"
+      "mcp__serena__read_file",
+      "Bash(flutter analyze:*)",
+      "mcp__serena__list_dir",
+      "mcp__ide__getDiagnostics",
+      "mcp__serena__find_file",
+      "Bash(flutter build:*)",
+      "Bash(timeout 30s flutter build:*)"
     ],
     "deny": [],
     "ask": []

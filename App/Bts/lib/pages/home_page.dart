@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../repos/product_repo.dart';
 import '../services/price_formatter.dart';
 import '../repos/models/product.dart';
+import '../repos/germany_tours_repo.dart';
 import 'product_schloss_neuschwanstein_page.dart';
+import 'germany_products_page.dart';
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;
@@ -64,11 +66,21 @@ class ProductCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => ProductPage(product: product),
-            ),
-          );
+          if (product.id == 'prod_germany_products') {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => GermanyProductsPage(
+                  repo: GermanyToursRepo(),
+                ),
+              ),
+            );
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ProductPage(product: product),
+              ),
+            );
+          }
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -105,18 +117,20 @@ class ProductCard extends StatelessWidget {
                       color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Icon(Icons.attach_money, size: 18),
-                  Text(
-                    priceText,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
+              if (priceText.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.attach_money, size: 18),
+                    Text(
+                      priceText,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

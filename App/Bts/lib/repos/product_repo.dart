@@ -16,6 +16,14 @@ class InMemoryProductRepo implements ProductRepo {
         price: 21,
         currency: 'EUR',
       ),
+      Product(
+        id: 'prod_germany_products',
+        name: 'Germany Products Page',
+        imageUrl: 'assets/images/germany_products.jpg', // placeholder
+        propaganda: 'Explore authentic German travel experiences',
+        price: 35,
+        currency: 'EUR',
+      ),
     ];
   }
 }

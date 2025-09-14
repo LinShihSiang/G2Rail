@@ -17,7 +17,7 @@ The Germany Best-Selling Tickets page displays filtered tour packages specifical
   "name": "Skip the line: DDR Museum Berlin",
   "intro": "Experience life in socialist East Germany with a trip to Berlin's award-winning DDR Museum to understand life under the dictatorship of the former DDR government between 1949 and 1989. Avoid the long queues with your skip the line entrance ticket which admits you to all areas of the museum. This interactive museum allows you to sit in an authentic Trabi car, undergo a Stasi interrogation or visit a replicated East German apartment complete with original television programming and more.",
   "highlights": "",
-  "price_eur": "12.0",
+  "price_eur": "12.0",  // Original price - Sell price = price_eur * 0.9 + 2
   "images": [
     "https://sematicweb.detie.cn/content/N__353640561.jpg"
   ],
@@ -51,7 +51,8 @@ class GermanyTourPackage {
   final String id;           // from _id
   final String name;         // package name
   final String intro;        // description
-  final String priceEur;     // price in EUR
+  final String priceEur;     // original price in EUR
+  final double sellPrice;    // calculated sell price = priceEur * 0.9 + 2
   final List<String> images; // image URLs
   final String location;     // Berlin or Munich
 
@@ -60,6 +61,7 @@ class GermanyTourPackage {
     required this.name,
     required this.intro,
     required this.priceEur,
+    required this.sellPrice,
     required this.images,
     required this.location,
   });
@@ -73,6 +75,7 @@ class GermanyToursRepo {
     // Load and parse Italy_Germany_tours.json
     // Filter for location: "Berlin" or "Munich"
     // Convert to GermanyTourPackage objects
+    // Calculate sellPrice = priceEur * 0.9 + 2 for each tour
   }
 
   List<GermanyTourPackage> filterByLocation(List<GermanyTourPackage> tours, String location) {
@@ -136,7 +139,7 @@ Each tour package displays as a card containing:
 2. **Content Section**
    - **Package Name**: Large, bold text
    - **Description**: Up to 3 lines with ellipsis overflow
-   - **Price**: Prominent green text with EUR symbol
+   - **Price**: Prominent green text with EUR symbol (displays calculated sellPrice)
    - **Navigation Arrow**: Indicates tap interaction
 
 ### Card Layout Structure
@@ -195,7 +198,7 @@ Card(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '€${tour.priceEur}',
+                    '€${tour.sellPrice.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.green[700],
                       fontWeight: FontWeight.bold,
@@ -243,7 +246,8 @@ The complete `GermanyTourPackage` object is passed, containing:
 - **Package ID**: Unique identifier for tracking
 - **Package Name**: For display and reference
 - **Location**: Destination city (Berlin/Munich)
-- **Price**: For cost calculation
+- **Original Price**: Raw price_eur from JSON
+- **Sell Price**: Calculated price (price_eur * 0.9 + 2) for cost calculation
 - **Description**: For context and details
 - **Images**: For visual consistency
 

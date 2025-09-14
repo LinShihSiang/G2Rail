@@ -132,7 +132,7 @@ class OrderStep1ViewModelImpl extends OrderStep1ViewModel {
   int get totalPeople => adultCount + childCount;
 
   @override
-  num get unitPrice => _product.price;
+  num get unitPrice => _product.price ?? 0;
 
   @override
   String get currency => _product.currency;

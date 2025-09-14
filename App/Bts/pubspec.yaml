@@ -30,6 +30,8 @@ flutter:
 
   assets:
     - assets/images/schloss_neuschwanstein.jpg
+    - assets/images/germany_products.jpg
+    - data/Italy_Germany_tours.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

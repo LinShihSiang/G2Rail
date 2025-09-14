@@ -77,7 +77,7 @@ class OrderDraft {
 
     final adultCount = 1 + companions.where((c) => !c.isChild).length;
     final childCount = companions.where((c) => c.isChild).length;
-    final totalAmount = product.price * adultCount;
+    final totalAmount = (product.price ?? 0) * adultCount;
 
     final dateTime = DateTime(
       state.selectedDate!.year,
@@ -90,7 +90,7 @@ class OrderDraft {
     return OrderDraft(
       productId: product.id,
       productName: product.name,
-      unitPrice: product.price,
+      unitPrice: product.price ?? 0,
       currency: product.currency,
       mainFullNameEn: state.fullNameEn,
       email: state.email,

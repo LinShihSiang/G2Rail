@@ -3,7 +3,7 @@ class Product {
   final String name;
   final String imageUrl;   // local asset or remote URL
   final String propaganda; // marketing tagline
-  final num price;         // numeric price, ex: 21
+  final num? price;        // numeric price, ex: 21, nullable for when price not set
   final String currency;   // ISO 4217, e.g., "EUR"
 
   const Product({
@@ -11,7 +11,7 @@ class Product {
     required this.name,
     required this.imageUrl,
     required this.propaganda,
-    required this.price,
+    this.price,              // now optional
     required this.currency,
   });
 }

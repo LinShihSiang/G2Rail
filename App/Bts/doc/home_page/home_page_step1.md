@@ -7,7 +7,7 @@ List all travel products on the Home page using a scrollable list. Each item sho
 - Price
 - Currency
 
-Initial catalog contains **Schloss Neuschwanstein**.
+Initial catalog contains **Schloss Neuschwanstein** and **Germany Products Page**.
 
 ---
 
@@ -55,16 +55,24 @@ class InMemoryProductRepo implements ProductRepo {
         price: 21,
         currency: 'EUR',
       ),
+      Product(
+        id: 'prod_germany_products',
+        name: 'Germany Products Page',
+        imageUrl: 'assets/images/germany_products.jpg', // placeholder
+        propaganda: 'Explore authentic German travel experiences',
+        currency: 'EUR',
+      ),
     ];
   }
 }
 ```
 
-> **Image note:** Use a placeholder asset path for now (`assets/images/schloss_neuschwanstein.jpg`). You can later replace it with a generated or licensed photo. Add to `pubspec.yaml`:
+> **Image note:** Use placeholder asset paths for now (`assets/images/schloss_neuschwanstein.jpg` and `assets/images/germany_products.jpg`). You can later replace them with generated or licensed photos. Add to `pubspec.yaml`:
 ```yaml
 flutter:
   assets:
     - assets/images/schloss_neuschwanstein.jpg
+    - assets/images/germany_products.jpg
 ```
 
 ---
@@ -293,8 +301,14 @@ lib/
 ---
 
 ## Product Detail Setting (Source of Truth for Step 1)
-- **Product:** Schloss Neuschwanstein  
-  - **Image:** `assets/images/schloss_neuschwanstein.jpg` (placeholder; replace later)  
-  - **Propaganda:** `95折優惠，18歲以下免費同行`  
-  - **Price:** `21`  
+- **Product 1:** Schloss Neuschwanstein
+  - **Image:** `assets/images/schloss_neuschwanstein.jpg` (placeholder; replace later)
+  - **Propaganda:** `95折優惠，18歲以下免費同行`
+  - **Price:** `21`
+  - **Currency:** `EUR`
+
+- **Product 2:** Germany Products Page
+  - **Image:** `assets/images/germany_products.jpg` (placeholder; replace later)
+  - **Propaganda:** `Explore authentic German travel experiences`
+  - **Price:** `35`
   - **Currency:** `EUR`
