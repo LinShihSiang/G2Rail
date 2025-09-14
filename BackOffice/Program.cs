@@ -74,8 +74,13 @@ builder.Services.AddHttpClient<IN8NApiService, N8NApiService>(client =>
 // Register N8N API service
 builder.Services.AddScoped<IN8NApiService, N8NApiService>();
 
-// HTTP Client for N8N Integration (existing service)
-builder.Services.AddHttpClient<IN8NIntegrationService>();
+// Additional N8N Integration Services
+builder.Services.AddScoped<IN8NCacheInvalidationService, N8NCacheInvalidationService>();
+builder.Services.AddScoped<IN8NHealthService, N8NHealthService>();
+builder.Services.AddScoped<IN8NTestService, N8NTestService>();
+
+// Background Services for N8N monitoring
+builder.Services.AddHostedService<N8NHealthCheckBackgroundService>();
 
 // FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
