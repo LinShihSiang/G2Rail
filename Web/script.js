@@ -66,7 +66,7 @@ class AppManager {
         this.isMobile = this.isIOS || this.isAndroid;
 
         // App Store URL
-        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing';
+        this.appURL = 'https://drive.google.com/file/d/1XORizRfLPn1uYESbPgiIXpeosndI23XL/view?usp=drive_link';
 
         // App URL schemes for opening installed apps
         this.appScheme = 'dodoman://';
