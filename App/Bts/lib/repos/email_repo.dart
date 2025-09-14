@@ -1,5 +1,5 @@
-import 'package:flutter_email_sender/flutter_email_sender.dart';
-import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
 class EmailRepo {
@@ -12,38 +12,33 @@ class EmailRepo {
     required String paymentDetails,
     String? subject,
   }) async {
-    // In debug/development mode, skip trying to send email and just log it
-    if (kDebugMode) {
-      debugPrint('📧 EMAIL SIMULATION (Development Mode)');
-      debugPrint('To: $toEmail');
-      debugPrint('Subject: ${subject ?? 'DoDoMan Travel Booking Confirmation'}');
-      debugPrint('Body:\n${_buildConfirmationEmailBody(customerName, orderDetails, paymentDetails)}');
-      debugPrint('✅ Email would be sent successfully in production');
-      return true;
-    }
 
     try {
-      final Email email = Email(
-        body: _buildConfirmationEmailBody(customerName, orderDetails, paymentDetails),
-        subject: subject ?? 'DoDoMan Travel Booking Confirmation',
-        recipients: [toEmail],
-        isHTML: false,
+      final title = 'DoDoMan天鵝堡門票訂單 - {$customerName}($toEmail)';
+
+      final response = await http.post(
+        Uri.parse(
+          'https://howardmei.app.n8n.cloud/webhook/send-order-mail',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'subject': title,
+          'message': _buildConfirmationEmailBody(customerName, orderDetails, paymentDetails)
+        }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw 'Request timeout after 30 seconds',
       );
 
-      await FlutterEmailSender.send(email);
-      debugPrint('✅ Email sent successfully to $toEmail');
-      return true;
-    } on PlatformException catch (e) {
-      if (e.code == 'not_available') {
-        debugPrint('❌ Email sending failed: No email clients found on device');
-        debugPrint('💡 In production, ensure users have an email app installed');
-        return false; // In production, this should return false to indicate failure
-      } else {
-        debugPrint('❌ Email sending failed with platform exception: ${e.message}');
-        return false;
+      if (response.statusCode != 200) {
+        throw 'HTTP ${response.statusCode}: ${response.body}';
       }
+
+      return true;
     } catch (e) {
-      debugPrint('❌ Email sending failed with unexpected error: $e');
+      if (kDebugMode) {
+        print('Email sending failed: $e');
+      }
       return false;
     }
   }

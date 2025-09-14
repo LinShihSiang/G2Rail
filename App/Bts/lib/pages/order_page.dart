@@ -470,9 +470,11 @@ class _OrderPageContentState extends State<_OrderPageContent> {
       final orderId = _generateOrderId(viewModel.product.id);
 
       // Step 1: Process Payment
-      setState(() {
-        _isProcessingPayment = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessingPayment = true;
+        });
+      }
 
       bool paymentSuccess;
       try {
@@ -481,34 +483,42 @@ class _OrderPageContentState extends State<_OrderPageContent> {
           travelDescription: viewModel.product.name,
         );
       } catch (e) {
-        setState(() {
-          _paymentError = 'Payment failed: ${e.toString()}';
-          _isProcessingPayment = false;
-        });
         if (mounted) {
-          _showErrorDialog(context, 'Payment Error', _paymentError!);
+          setState(() {
+            _paymentError = 'Payment failed: ${e.toString()}';
+            _isProcessingPayment = false;
+          });
+          if (context.mounted) {
+            _showErrorDialog(context, 'Payment Error', _paymentError!);
+          }
         }
         return;
       }
 
-      setState(() {
-        _isProcessingPayment = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessingPayment = false;
+        });
+      }
 
       if (!paymentSuccess) {
-        setState(() {
-          _paymentError = 'Payment was not completed successfully';
-        });
         if (mounted) {
-          _showErrorDialog(context, 'Payment Failed', _paymentError!);
+          setState(() {
+            _paymentError = 'Payment was not completed successfully';
+          });
+          if (context.mounted) {
+            _showErrorDialog(context, 'Payment Failed', _paymentError!);
+          }
         }
         return;
       }
 
       // Step 2: Send Email Confirmation
-      setState(() {
-        _isSendingEmail = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isSendingEmail = true;
+        });
+      }
 
       try {
         final emailService = EmailService();
@@ -523,23 +533,25 @@ class _OrderPageContentState extends State<_OrderPageContent> {
           paymentInfo: paymentInfo,
         );
 
-        setState(() {
-          _isSendingEmail = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isSendingEmail = false;
+          });
+        }
 
-        if (!emailSuccess) {
+        if (!emailSuccess && mounted && context.mounted) {
           // Continue to confirmation page but show warning
-          if (mounted) {
-            _showEmailWarning(context);
-          }
+          _showEmailWarning(context);
         }
       } catch (e) {
-        setState(() {
-          _isSendingEmail = false;
-        });
-        // Continue to confirmation page but show warning
         if (mounted) {
-          _showEmailWarning(context);
+          setState(() {
+            _isSendingEmail = false;
+          });
+          // Continue to confirmation page but show warning
+          if (context.mounted) {
+            _showEmailWarning(context);
+          }
         }
       }
 
@@ -556,7 +568,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
       setState(() {
         _paymentError = 'An unexpected error occurred: ${e.toString()}';
       });
-      if (mounted) {
+      if (mounted && context.mounted) {
         _showErrorDialog(context, 'Error', _paymentError!);
       }
     } finally {
