@@ -52,7 +52,7 @@ namespace DoDoManBackOffice.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading order index page");
-                TempData["Error"] = "載入訂單列表時發生錯誤，請稍後再試。";
+                TempData["Error"] = "An error occurred while loading the order list. Please try again later.";
                 return View(new OrderListViewModel());
             }
         }
@@ -65,7 +65,7 @@ namespace DoDoManBackOffice.Controllers
                 var order = await _orderService.GetOrderByNumberAsync(orderNumber);
                 if (order == null)
                 {
-                    return NotFound("找不到指定的訂單");
+                    return NotFound("Order not found");
                 }
 
                 var viewModel = new OrderDetailsViewModel
@@ -78,7 +78,7 @@ namespace DoDoManBackOffice.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading order details for order {OrderNumber}", orderNumber);
-                TempData["Error"] = "載入訂單詳情時發生錯誤。";
+                TempData["Error"] = "An error occurred while loading order details.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -106,7 +106,7 @@ namespace DoDoManBackOffice.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error exporting orders");
-                TempData["Error"] = "匯出訂單時發生錯誤。";
+                TempData["Error"] = "An error occurred while exporting orders.";
                 return RedirectToAction(nameof(Index));
             }
         }
@@ -114,7 +114,7 @@ namespace DoDoManBackOffice.Controllers
         private string GenerateCsv(IEnumerable<OrderViewModel> orders)
         {
             var csv = new System.Text.StringBuilder();
-            csv.AppendLine("訂單編號,訂單日期,客戶姓名,支付方式,支付狀態");
+            csv.AppendLine("Order Number,Order Date,Customer Name,Payment Method,Payment Status");
 
             foreach (var order in orders)
             {

@@ -5,20 +5,20 @@ namespace DoDoManBackOffice.Models.ViewModels
 {
     public class OrderViewModel
     {
-        [Display(Name = "訂單編號")]
+        [Display(Name = "Order Number")]
         public int OrderNumber { get; set; }
 
-        [Display(Name = "訂單日期")]
+        [Display(Name = "Order Date")]
         [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd HH:mm}")]
         public DateTime OrderDate { get; set; }
 
-        [Display(Name = "客戶姓名")]
+        [Display(Name = "Customer Name")]
         public string CustomerName { get; set; } = string.Empty;
 
-        [Display(Name = "支付方式")]
+        [Display(Name = "Payment Method")]
         public string PaymentMethod { get; set; } = string.Empty;
 
-        [Display(Name = "支付狀態")]
+        [Display(Name = "Payment Status")]
         public string PaymentStatusRaw { get; set; } = string.Empty;
 
         public PaymentStatus PaymentStatus => ParsePaymentStatus(PaymentStatusRaw);
@@ -43,12 +43,12 @@ namespace DoDoManBackOffice.Models.ViewModels
         {
             return PaymentStatus switch
             {
-                PaymentStatus.Pending => "待付款",
-                PaymentStatus.Success => "已付款",
-                PaymentStatus.Failed => "付款失敗",
-                PaymentStatus.Refunded => "已退款",
-                PaymentStatus.Cancelled => "已取消",
-                _ => "未知"
+                PaymentStatus.Pending => "Pending",
+                PaymentStatus.Success => "Paid",
+                PaymentStatus.Failed => "Failed",
+                PaymentStatus.Refunded => "Refunded",
+                PaymentStatus.Cancelled => "Cancelled",
+                _ => "Unknown"
             };
         }
 
@@ -81,10 +81,8 @@ namespace DoDoManBackOffice.Models.ViewModels
         {
             return method?.ToLower() switch
             {
-                "credit card" => "信用卡",
-                "bank transfer" => "銀行轉帳",
-                "paypal" => "PayPal",
-                "line pay" => "Line Pay",
+                "credit card" => "Credit Card",
+                "bank transfer" => "Bank Transfer",
                 _ => method ?? ""
             };
         }

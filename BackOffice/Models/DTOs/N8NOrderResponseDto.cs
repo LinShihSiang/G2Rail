@@ -7,19 +7,19 @@ namespace DoDoManBackOffice.Models.DTOs
         [JsonPropertyName("row_number")]
         public int RowNumber { get; set; }
 
-        [JsonPropertyName("訂單編號")]
+        [JsonPropertyName("id")]
         public int OrderNumber { get; set; }
 
-        [JsonPropertyName("訂單日期")]
+        [JsonPropertyName("date")]
         public string OrderDate { get; set; } = string.Empty;
 
-        [JsonPropertyName("客戶名稱")]
+        [JsonPropertyName("name")]
         public string CustomerName { get; set; } = string.Empty;
 
-        [JsonPropertyName("支付方式")]
+        [JsonPropertyName("method")]
         public string PaymentMethod { get; set; } = string.Empty;
 
-        [JsonPropertyName("支付狀態")]
+        [JsonPropertyName("status")]
         public string PaymentStatus { get; set; } = string.Empty;
     }
 
@@ -34,10 +34,10 @@ namespace DoDoManBackOffice.Models.DTOs
 
     public enum OrderStatus
     {
-        Pending = 0,      // 待處理
-        Confirmed = 1,    // 已確認
-        InProgress = 2,   // 進行中
-        Completed = 3,    // 已完成
-        Cancelled = 4     // 已取消
+        Pending = 0,      // Pending
+        Confirmed = 1,    // Confirmed
+        InProgress = 2,   // In Progress
+        Completed = 3,    // Completed
+        Cancelled = 4     // Cancelled
     }
 }

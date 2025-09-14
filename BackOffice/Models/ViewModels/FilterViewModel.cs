@@ -6,25 +6,25 @@ namespace DoDoManBackOffice.Models.ViewModels
 {
     public class FilterViewModel
     {
-        [Display(Name = "開始日期")]
+        [Display(Name = "Start Date")]
         [DataType(DataType.Date)]
         public DateTime? StartDate { get; set; }
 
-        [Display(Name = "結束日期")]
+        [Display(Name = "End Date")]
         [DataType(DataType.Date)]
         public DateTime? EndDate { get; set; }
 
-        [Display(Name = "訂單編號")]
+        [Display(Name = "Order Number")]
         public int? OrderNumber { get; set; }
 
-        [Display(Name = "客戶姓名")]
+        [Display(Name = "Customer Name")]
         [StringLength(100)]
         public string? CustomerName { get; set; }
 
-        [Display(Name = "支付方式")]
+        [Display(Name = "Payment Method")]
         public string? PaymentMethod { get; set; }
 
-        [Display(Name = "支付狀態")]
+        [Display(Name = "Payment Status")]
         public string? PaymentStatus { get; set; }
 
         public int Page { get; set; } = 1;
@@ -33,21 +33,19 @@ namespace DoDoManBackOffice.Models.ViewModels
         // For dropdowns
         public List<SelectListItem> PaymentMethodOptions { get; set; } = new()
         {
-            new SelectListItem { Value = "", Text = "全部" },
-            new SelectListItem { Value = "credit card", Text = "信用卡" },
-            new SelectListItem { Value = "bank transfer", Text = "銀行轉帳" },
-            new SelectListItem { Value = "paypal", Text = "PayPal" },
-            new SelectListItem { Value = "line pay", Text = "Line Pay" }
+            new SelectListItem { Value = "", Text = "All" },
+            new SelectListItem { Value = "credit card", Text = "Credit Card" },
+            new SelectListItem { Value = "bank transfer", Text = "Bank Transfer" }
         };
 
         public List<SelectListItem> PaymentStatusOptions { get; set; } = new()
         {
-            new SelectListItem { Value = "", Text = "全部" },
-            new SelectListItem { Value = "pending", Text = "待付款" },
-            new SelectListItem { Value = "success", Text = "已付款" },
-            new SelectListItem { Value = "failed", Text = "付款失敗" },
-            new SelectListItem { Value = "refunded", Text = "已退款" },
-            new SelectListItem { Value = "cancelled", Text = "已取消" }
+            new SelectListItem { Value = "", Text = "All" },
+            new SelectListItem { Value = "pending", Text = "Pending" },
+            new SelectListItem { Value = "success", Text = "Paid" },
+            new SelectListItem { Value = "failed", Text = "Failed" },
+            new SelectListItem { Value = "refunded", Text = "Refunded" },
+            new SelectListItem { Value = "cancelled", Text = "Cancelled" }
         };
     }
 }
