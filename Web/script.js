@@ -1,20 +1,60 @@
 // Shared Destination Data
 const DESTINATION_DATA = [
     {
-        title: "新天鵝堡探索之旅",
-        location: "德國",
-        price: "€21 起",
+        key: "neuschwanstein",
+        price: "€21",
+        originalPrice: "€28",
         image: "https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg",
-        intro: "探索德國最浪漫的童話城堡",
-        badge: "主打推薦"
+        discount: "25%",
+        duration: "半日遊"
     },
     {
-        title: "烏菲茲美術館藝術之旅",
-        location: "佛羅倫斯",
-        price: "€35.9 起",
+        key: "uffizi",
+        price: "€35.9",
+        originalPrice: "€45",
         image: "https://blog-static.kkday.com/zh-hk/blog/wp-content/uploads/shutterstock_673635160-644x444.jpg",
-        intro: "義大利文藝復興藝術寶庫",
-        badge: "藝術殿堂"
+        discount: "20%",
+        duration: "3小時"
+    }
+];
+
+// Package Tour Data - Selected from Italy_Germany_tours.json
+const PACKAGE_DATA = [
+    {
+        id: "TR__6274P15",
+        key: "rome",
+        price: "€232",
+        originalPrice: "€280",
+        image: "https://sematicweb.detie.cn/content/W__37747155.jpg",
+        featureCount: 4,
+        discount: "17%"
+    },
+    {
+        id: "TR__3731P161",
+        key: "milan",
+        price: "€155",
+        originalPrice: "€185",
+        image: "https://sematicweb.detie.cn/content/W__27626748.jpg",
+        featureCount: 5,
+        discount: "16%"
+    },
+    {
+        id: "TR__5326MUCNUREM",
+        key: "munich",
+        price: "€298",
+        originalPrice: "€350",
+        image: "https://sematicweb.detie.cn/content/N__296314458.jpg",
+        featureCount: 5,
+        discount: "15%"
+    },
+    {
+        id: "TR__5831P13",
+        key: "vatican",
+        price: "€115",
+        originalPrice: "€140",
+        image: "https://sematicweb.detie.cn/content/W__51395665.jpg",
+        featureCount: 6,
+        discount: "18%"
     }
 ];
 
@@ -26,7 +66,7 @@ class AppManager {
         this.isMobile = this.isIOS || this.isAndroid;
 
         // App Store URL
-        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=sharing';
+        this.appURL = 'https://drive.google.com/file/d/1lbDW1BNVDY599gBXOD5RQwjrde2a-91t/view?usp=drive_link';
 
         // App URL schemes for opening installed apps
         this.appScheme = 'dodoman://';
@@ -409,40 +449,256 @@ class UIEnhancements {
     }
 }
 
-// Gallery Manager for Popular Destinations
+// Gallery Manager for Popular Attractions
 class GalleryManager {
     constructor() {
-        this.slides = [];
+        this.attractions = [];
         this.init();
     }
 
     init() {
-        this.loadDestinations();
+        this.loadAttractions();
         this.renderGallery();
+        this.setupLanguageChangeListener();
     }
 
-    loadDestinations() {
+    loadAttractions() {
         // Use shared destination data
-        this.slides = DESTINATION_DATA;
+        this.attractions = DESTINATION_DATA;
     }
 
     renderGallery() {
         const galleryGrid = document.getElementById('galleryGrid');
         if (!galleryGrid) return;
 
-        galleryGrid.innerHTML = this.slides.map(slide => `
-            <div class="gallery-item large featured fullwidth">
-                <img src="${slide.image}" alt="${slide.title}" />
-                <div class="gallery-overlay">
-                    <div class="featured-badge">${slide.badge}</div>
-                    <h3>${slide.title}</h3>
-                    <p>${slide.intro}</p>
-                    <div class="price-tag">${slide.price}</div>
-                    <div class="location-tag">📍 ${slide.location}</div>
-                    <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="gallery-cta primary">立即預訂</a> -->
+        galleryGrid.innerHTML = this.attractions.map(attraction => {
+            const i18n = window.i18n;
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                // Check if translation is undefined, null, or equals the key (meaning no translation found)
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`gallery.${attraction.key}.title`, attraction.key.charAt(0).toUpperCase() + attraction.key.slice(1));
+            const subtitle = safeTranslate(`gallery.${attraction.key}.subtitle`, 'Experience');
+            const location = safeTranslate(`gallery.${attraction.key}.location`, 'Europe');
+            const description = safeTranslate(`gallery.${attraction.key}.desc`, 'Discover amazing experiences and create unforgettable memories.');
+            const duration = safeTranslate(`gallery.${attraction.key}.duration`, attraction.duration || '1 Day');
+            const badge = safeTranslate(`gallery.${attraction.key}.badge`, 'Featured');
+            const bookNow = safeTranslate('package.bookNow', 'Book Now');
+
+            // Generate features list (3 features for attractions)
+            const features = [];
+            for (let i = 1; i <= 3; i++) {
+                const feature = safeTranslate(`gallery.${attraction.key}.feature${i}`, `Feature ${i}`);
+                features.push(feature);
+            }
+
+            // Determine badge class based on badge text
+            let badgeClass = 'featured';
+            if (badge === '主打推薦' || badge === 'Featured') {
+                badgeClass = 'popular';
+            } else if (badge === '藝術殿堂' || badge === 'Art Gallery') {
+                badgeClass = 'featured';
+            } else if (badge === '經典必遊' || badge === 'Must Visit') {
+                badgeClass = 'sale';
+            }
+
+            return `
+                <div class="gallery-card" data-attraction-id="${attraction.key}">
+                    <div class="gallery-image">
+                        <img src="${attraction.image}" alt="${title}" loading="lazy" />
+                        <div class="gallery-badge ${badgeClass}">${badge}</div>
+                        <div class="gallery-discount">-${attraction.discount}</div>
+                    </div>
+                    <div class="gallery-content">
+                        <div class="gallery-header">
+                            <h3 class="gallery-title">${title}</h3>
+                            <p class="gallery-subtitle">${subtitle}</p>
+                            <div class="gallery-location">📍 ${location}</div>
+                        </div>
+                        <div class="gallery-description">
+                            <p>${description}</p>
+                        </div>
+                        <div class="gallery-features">
+                            <ul>
+                                ${features.map(feature => `<li>${feature}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="gallery-footer">
+                            <div class="gallery-duration">⏱ ${duration}</div>
+                            <div class="gallery-pricing">
+                                <div class="gallery-pricing-left">
+                                    <span class="gallery-original-price">€${attraction.originalPrice.replace('€', '')}</span>
+                                    <span class="gallery-price">${attraction.price}</span>
+                                </div>
+                            </div>
+                            <button class="gallery-book-btn" data-attraction-id="${attraction.key}">${bookNow}</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render gallery
+        document.addEventListener('languageChanged', () => {
+            this.renderGallery();
+        });
+    }
+}
+
+// Package Manager for Package Tours
+class PackageManager {
+    constructor() {
+        this.packages = [];
+        this.init();
+    }
+
+    init() {
+        this.loadPackages();
+        this.renderPackages();
+        this.setupEventListeners();
+        this.setupLanguageChangeListener();
+    }
+
+    loadPackages() {
+        // Use package data
+        this.packages = PACKAGE_DATA;
+    }
+
+    renderPackages() {
+        const packagesGrid = document.getElementById('packagesGrid');
+        if (!packagesGrid) return;
+
+        packagesGrid.innerHTML = this.packages.map(pkg => {
+            const i18n = window.i18n;
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`package.${pkg.key}.title`, pkg.key.charAt(0).toUpperCase() + pkg.key.slice(1));
+            const subtitle = safeTranslate(`package.${pkg.key}.subtitle`, 'Travel Experience');
+            const location = safeTranslate(`package.${pkg.key}.location`, 'Europe');
+            const description = safeTranslate(`package.${pkg.key}.description`, 'Discover amazing travel experiences with professional guides and memorable adventures.');
+            const duration = safeTranslate(`package.${pkg.key}.duration`, '1 Day');
+            const badge = safeTranslate(`package.${pkg.key}.badge`, 'Featured');
+            const bookNow = safeTranslate('package.bookNow', 'Book Now');
+
+            // Get fallback image based on package key
+            const getFallbackImage = (key) => {
+                const fallbackImages = {
+                    'rome': 'https://images.unsplash.com/photo-1531572753322-ad063cecc140?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'milan': 'https://images.unsplash.com/photo-1513581166391-887a96ddeafd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'munich': 'https://images.unsplash.com/photo-1595867818082-083862f3d630?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                    'vatican': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+                };
+                return fallbackImages[key] || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+            };
+
+            const imageUrl = pkg.image || getFallbackImage(pkg.key);
+
+            // Generate features list
+            const features = [];
+            for (let i = 1; i <= pkg.featureCount; i++) {
+                const feature = safeTranslate(`package.${pkg.key}.feature${i}`, `Feature ${i}`);
+                features.push(feature);
+            }
+
+            // Determine badge class based on badge text
+            let badgeClass = 'featured';
+            if (badge === '特價優惠' || badge === 'Special Offer') {
+                badgeClass = 'sale';
+            } else if (badge === '熱門推薦' || badge === 'Popular Choice') {
+                badgeClass = 'popular';
+            }
+
+            return `
+                <div class="package-card" data-package-id="${pkg.id}">
+                    <div class="package-image">
+                        <img src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'" />
+                        <div class="package-badge ${badgeClass}">${badge}</div>
+                        <div class="package-discount">-${pkg.discount}</div>
+                    </div>
+                    <div class="package-content">
+                        <div class="package-header">
+                            <h3 class="package-title">${title}</h3>
+                            <p class="package-subtitle">${subtitle}</p>
+                            <div class="package-location">📍 ${location}</div>
+                        </div>
+                        <div class="package-description">
+                            <p>${description}</p>
+                        </div>
+                        <div class="package-features">
+                            <ul>
+                                ${features.map(feature => `<li>${feature}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="package-footer">
+                            <div class="package-duration">⏱ ${duration}</div>
+                            <div class="package-pricing">
+                                <div class="package-pricing-left">
+                                    <span class="package-original-price">€${pkg.originalPrice.replace('€', '')}</span>
+                                    <span class="package-price">${pkg.price}</span>
+                                </div>
+                            </div>
+                            <button class="package-book-btn" data-package-id="${pkg.id}">${bookNow}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    setupEventListeners() {
+        // Add event listeners for book buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('package-book-btn')) {
+                const packageId = e.target.getAttribute('data-package-id');
+                this.handlePackageBooking(packageId);
+            }
+        });
+    }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render packages
+        document.addEventListener('languageChanged', () => {
+            this.renderPackages();
+        });
+    }
+
+
+    handlePackageBooking(packageId) {
+        const selectedPackage = this.packages.find(pkg => pkg.id === packageId);
+        if (selectedPackage) {
+            const i18n = window.i18n;
+            const title = i18n ? i18n.t(`package.${selectedPackage.key}.title`) : selectedPackage.key;
+
+            // Track analytics
+            if (window.analytics) {
+                window.analytics.track('package_booking_clicked', {
+                    package_id: packageId,
+                    package_title: title,
+                    package_price: selectedPackage.price
+                });
+            }
+
+            // In a real app, this might open booking flow or redirect to booking page
+            const currentLang = i18n ? i18n.getCurrentLanguage() : 'zh-TW';
+            if (currentLang === 'en') {
+                alert(`Booking: ${title}\nPrice: ${selectedPackage.price}\n\nRedirecting to booking page...`);
+            } else {
+                alert(`準備預訂：${title}\n價格：${selectedPackage.price}\n\n即將跳轉至預訂頁面...`);
+            }
+        }
     }
 }
 
@@ -460,6 +716,7 @@ class DestinationCarousel {
     init() {
         this.loadDestinations();
         this.setupEventListeners();
+        this.setupLanguageChangeListener();
         this.startAutoPlay();
     }
 
@@ -475,16 +732,30 @@ class DestinationCarousel {
         const track = document.getElementById('carouselTrack');
         if (!track) return;
 
-        track.innerHTML = this.slides.map(slide => `
-            <div class="carousel-slide">
-                <img src="${slide.image}" alt="${slide.title}" />
-                <div class="carousel-slide-overlay">
-                    <div class="carousel-slide-title">${slide.title}</div>
-                    <div class="carousel-slide-location">📍 ${slide.location}</div>
-                    <div class="carousel-slide-price">${slide.price}</div>
+        track.innerHTML = this.slides.map(slide => {
+            const i18n = window.i18n;
+
+            // Helper function to safely get translation with fallback
+            const safeTranslate = (key, fallback = '') => {
+                if (!i18n) return fallback;
+                const translation = i18n.t(key);
+                return (translation && translation !== key) ? translation : fallback;
+            };
+
+            const title = safeTranslate(`gallery.${slide.key}.title`, slide.key.charAt(0).toUpperCase() + slide.key.slice(1));
+            const location = safeTranslate(`gallery.${slide.key}.location`, 'Europe');
+
+            return `
+                <div class="carousel-slide">
+                    <img src="${slide.image}" alt="${title}" />
+                    <div class="carousel-slide-overlay">
+                        <div class="carousel-slide-title">${title}</div>
+                        <div class="carousel-slide-location">📍 ${location}</div>
+                        <div class="carousel-slide-price">${slide.price}</div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     renderDots() {
@@ -627,6 +898,13 @@ class DestinationCarousel {
         this.stopAutoPlay();
         this.startAutoPlay();
     }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render carousel
+        document.addEventListener('languageChanged', () => {
+            this.renderCarousel();
+        });
+    }
 }
 
 // Initialize everything when DOM is loaded
@@ -636,6 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const performanceOptimizer = new PerformanceOptimizer();
     const uiEnhancements = new UIEnhancements();
     const galleryManager = new GalleryManager();
+    const packageManager = new PackageManager();
     const destinationCarousel = new DestinationCarousel();
 
     // Track page load
@@ -668,8 +947,145 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Customer Service Email Functionality
+    setupCustomerServiceHandlers();
+
     console.log('DodoMan Landing Page with Destination Carousel initialized successfully!');
 });
+
+// Customer Service Email Handler
+function setupCustomerServiceHandlers() {
+    // Get all customer service buttons
+    const orderInquiryBtns = document.querySelectorAll('[data-i18n="customerService.order.button"]');
+    const generalInquiryBtns = document.querySelectorAll('[data-i18n="customerService.general.button"]');
+
+    // Handle order inquiry buttons
+    orderInquiryBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleOrderInquiry();
+        });
+    });
+
+    // Handle general inquiry buttons
+    generalInquiryBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleGeneralInquiry();
+        });
+    });
+}
+
+function handleOrderInquiry() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const subjects = {
+        'zh-TW': '訂單查詢 - DodoMan 客服',
+        'en': 'Order Inquiry - DodoMan Customer Service'
+    };
+
+    const bodies = {
+        'zh-TW': '親愛的客服團隊，\n\n我需要查詢我的訂單，詳細資訊如下：\n\n訂單編號：[請填入您的訂單編號]\n預訂日期：[請填入預訂日期]\n問題描述：[請描述您的問題]\n\n感謝您的協助！\n\n此致\n[您的姓名]',
+        'en': 'Dear Customer Service Team,\n\nI need to inquire about my order. Details are as follows:\n\nOrder Number: [Please enter your order number]\nBooking Date: [Please enter booking date]\nIssue Description: [Please describe your issue]\n\nThank you for your assistance!\n\nBest regards,\n[Your Name]'
+    };
+
+    openEmailClient(subjects[currentLang], bodies[currentLang]);
+}
+
+function handleGeneralInquiry() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const subjects = {
+        'zh-TW': '一般諮詢 - DodoMan 客服',
+        'en': 'General Inquiry - DodoMan Customer Service'
+    };
+
+    const bodies = {
+        'zh-TW': '親愛的客服團隊，\n\n我想諮詢以下問題：\n\n問題類型：[產品諮詢/技術支援/其他]\n詳細描述：[請詳細描述您的問題或需求]\n聯絡方式：[您的電話或其他聯絡方式]\n\n期待您的回覆，謝謝！\n\n此致\n[您的姓名]',
+        'en': 'Dear Customer Service Team,\n\nI would like to inquire about the following:\n\nInquiry Type: [Product Information/Technical Support/Other]\nDetailed Description: [Please describe your question or needs in detail]\nContact Information: [Your phone number or other contact method]\n\nLooking forward to your response, thank you!\n\nBest regards,\n[Your Name]'
+    };
+
+    openEmailClient(subjects[currentLang], bodies[currentLang]);
+}
+
+function openEmailClient(subject, body) {
+    const customerServiceEmail = 'howard.mei@onelab.tw';
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+
+    const mailtoLink = `mailto:${customerServiceEmail}?subject=${encodedSubject}&body=${encodedBody}`;
+
+    try {
+        // Open email client
+        window.location.href = mailtoLink;
+
+        // Show feedback message
+        showEmailFeedback();
+    } catch (error) {
+        console.error('Error opening email client:', error);
+        // Fallback: copy email to clipboard
+        fallbackEmailCopy(customerServiceEmail, subject);
+    }
+}
+
+function showEmailFeedback() {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const messages = {
+        'zh-TW': '正在開啟您的郵件應用程式...',
+        'en': 'Opening your email application...'
+    };
+
+    // Create temporary feedback message
+    const feedback = document.createElement('div');
+    feedback.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        background: #2563eb;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-size: 0.9rem;
+        animation: slideIn 0.3s ease;
+    `;
+    feedback.textContent = messages[currentLang];
+
+    // Add animation CSS
+    if (!document.querySelector('#emailFeedbackStyle')) {
+        const style = document.createElement('style');
+        style.id = 'emailFeedbackStyle';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(feedback);
+
+    // Remove feedback after 3 seconds
+    setTimeout(() => {
+        if (feedback && feedback.parentNode) {
+            feedback.remove();
+        }
+    }, 3000);
+}
+
+function fallbackEmailCopy(email, subject) {
+    const currentLang = window.i18n?.getCurrentLanguage() || 'zh-TW';
+
+    const messages = {
+        'zh-TW': `無法開啟郵件應用程式。客服信箱：${email}`,
+        'en': `Unable to open email application. Customer service email: ${email}`
+    };
+
+    alert(messages[currentLang]);
+}
 
 // Add CSS for ripple effect
 const style = document.createElement('style');
