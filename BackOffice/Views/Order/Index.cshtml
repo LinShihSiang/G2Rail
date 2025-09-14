@@ -238,10 +238,78 @@
 
 @section Scripts {
     <script>
-        // Initialize auto-refresh for real-time data from N8N
-        setInterval(function() {
-            // Optional: Auto-refresh data every 5 minutes
-            // location.reload();
-        }, 300000);
+        $(document).ready(function() {
+            // Initialize date range picker
+            $('#dateRange').daterangepicker({
+                autoUpdateInput: false,
+                locale: {
+                    cancelLabel: 'Clear',
+                    applyLabel: 'Apply',
+                    format: 'YYYY-MM-DD',
+                    daysOfWeek: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+                    monthNames: ['January', 'February', 'March', 'April', 'May', 'June',
+                                'July', 'August', 'September', 'October', 'November', 'December']
+                },
+                ranges: {
+                    'Today': [moment(), moment()],
+                    'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                    'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                    'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                    'This Month': [moment().startOf('month'), moment().endOf('month')],
+                    'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                }
+            });
+
+            $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('YYYY-MM-DD') + ' - ' + picker.endDate.format('YYYY-MM-DD'));
+                $('input[name="StartDate"]').val(picker.startDate.format('YYYY-MM-DD'));
+                $('input[name="EndDate"]').val(picker.endDate.format('YYYY-MM-DD'));
+            });
+
+            $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+                $('input[name="StartDate"]').val('');
+                $('input[name="EndDate"]').val('');
+            });
+
+            $('#clearDateRange').click(function() {
+                $('#dateRange').val('');
+                $('input[name="StartDate"]').val('');
+                $('input[name="EndDate"]').val('');
+            });
+
+            // Order number autocomplete (if available)
+            if (typeof $.ui !== 'undefined' && $.ui.autocomplete) {
+                $('#OrderNumber').autocomplete({
+                    source: function(request, response) {
+                        $.ajax({
+                            url: '@Url.Action("Search", "Order")',
+                            type: 'GET',
+                            data: { term: request.term },
+                            success: function(data) {
+                                response(data);
+                            }
+                        });
+                    },
+                    minLength: 2
+                });
+            }
+
+            // Initialize auto-refresh for real-time data from N8N
+            setInterval(function() {
+                // Optional: Auto-refresh data every 5 minutes
+                // location.reload();
+            }, 300000);
+        });
+
+        function exportOrders() {
+            var form = $('#filterForm');
+            var actionUrl = form.attr('action');
+            form.attr('action', '@Url.Action("Export", "Order")');
+            form.attr('target', '_blank');
+            form.submit();
+            form.attr('action', actionUrl);
+            form.removeAttr('target');
+        }
     </script>
 }

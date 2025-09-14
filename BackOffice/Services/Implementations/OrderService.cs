@@ -26,30 +26,26 @@ namespace DoDoManBackOffice.Services.Implementations
             {
                 _logger.LogInformation("Fetching orders with filter: {@Filter}", filter);
 
-                // Get cached data first
-                var cacheKey = $"orders_{DateTime.Now:yyyy-MM-dd-HH}";
+                // Get all orders from cache or API (without filter-specific caching)
+                var cacheKey = $"all_orders_{DateTime.Now:yyyy-MM-dd-HH}";
                 var cachedOrders = await _cacheService.GetAsync<List<N8NOrderResponseDto>>(cacheKey);
 
-                List<N8NOrderResponseDto> n8nOrders;
+                List<N8NOrderResponseDto> allOrders;
                 if (cachedOrders != null)
                 {
-                    n8nOrders = cachedOrders;
+                    allOrders = cachedOrders;
                 }
                 else
                 {
-                    // Fetch from N8N API with filters
-                    n8nOrders = (await _n8nApiService.GetOrdersAsync(
-                        filter.StartDate,
-                        filter.EndDate,
-                        filter.OrderNumber,
-                        filter.CustomerName,
-                        filter.PaymentMethod,
-                        filter.PaymentStatus
-                    )).ToList();
+                    // Fetch all orders from N8N API (without filters first to cache raw data)
+                    allOrders = (await _n8nApiService.GetOrdersAsync()).ToList();
 
-                    // Cache for 30 minutes
-                    await _cacheService.SetAsync(cacheKey, n8nOrders, TimeSpan.FromMinutes(30));
+                    // Cache all orders for 30 minutes
+                    await _cacheService.SetAsync(cacheKey, allOrders, TimeSpan.FromMinutes(30));
                 }
+
+                // Apply filters to all orders (whether from cache or API)
+                var n8nOrders = ApplyFilters(allOrders, filter);
 
                 // Transform to ViewModels
                 var orderViewModels = await TransformN8NDataAsync(n8nOrders);
@@ -315,16 +311,63 @@ namespace DoDoManBackOffice.Services.Implementations
             };
         }
 
+        private List<N8NOrderResponseDto> ApplyFilters(List<N8NOrderResponseDto> orders, FilterViewModel filter)
+        {
+            var filteredOrders = orders.AsEnumerable();
+
+            if (filter.OrderNumber.HasValue)
+            {
+                filteredOrders = filteredOrders.Where(o => o.OrderNumber == filter.OrderNumber.Value);
+            }
+
+            if (!string.IsNullOrEmpty(filter.CustomerName))
+            {
+                filteredOrders = filteredOrders.Where(o => o.CustomerName.Contains(filter.CustomerName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(filter.PaymentMethod))
+            {
+                filteredOrders = filteredOrders.Where(o => o.PaymentMethod.Equals(filter.PaymentMethod, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(filter.PaymentStatus))
+            {
+                filteredOrders = filteredOrders.Where(o => o.PaymentStatus.Equals(filter.PaymentStatus, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (filter.StartDate.HasValue || filter.EndDate.HasValue)
+            {
+                filteredOrders = filteredOrders.Where(o =>
+                {
+                    if (DateTime.TryParse(o.OrderDate, out var orderDate))
+                    {
+                        if (filter.StartDate.HasValue && orderDate.Date < filter.StartDate.Value.Date)
+                        {
+                            return false;
+                        }
+                        if (filter.EndDate.HasValue && orderDate.Date > filter.EndDate.Value.Date)
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                });
+            }
+
+            return filteredOrders.ToList();
+        }
+
         private string GetStatusDisplayName(PaymentStatus status)
         {
             return status switch
             {
-                PaymentStatus.Pending => "待付款",
-                PaymentStatus.Success => "已付款",
-                PaymentStatus.Failed => "付款失敗",
-                PaymentStatus.Refunded => "已退款",
-                PaymentStatus.Cancelled => "已取消",
-                _ => "未知"
+                PaymentStatus.Pending => "Pending",
+                PaymentStatus.Success => "Paid",
+                PaymentStatus.Failed => "Failed",
+                PaymentStatus.Refunded => "Refunded",
+                PaymentStatus.Cancelled => "Cancelled",
+                _ => "Unknown"
             };
         }
 

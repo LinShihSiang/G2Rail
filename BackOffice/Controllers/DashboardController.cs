@@ -60,7 +60,7 @@ namespace DoDoManBackOffice.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading dashboard");
-                TempData["Error"] = "載入儀表板時發生錯誤。";
+                TempData["Error"] = "An error occurred while loading the dashboard.";
                 return View(new DashboardViewModel());
             }
         }

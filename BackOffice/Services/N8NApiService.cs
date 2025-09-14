@@ -78,8 +78,14 @@ namespace DoDoManBackOffice.Services
                 {
                     if (DateTime.TryParse(o.OrderDate, out var orderDate))
                     {
-                        if (startDate.HasValue && orderDate < startDate.Value) return false;
-                        if (endDate.HasValue && orderDate > endDate.Value) return false;
+                        if (startDate.HasValue && orderDate.Date < startDate.Value.Date)
+                        {
+                            return false;
+                        }
+                        if (endDate.HasValue && orderDate.Date > endDate.Value.Date)
+                        {
+                            return false;
+                        }
                         return true;
                     }
                     return false;

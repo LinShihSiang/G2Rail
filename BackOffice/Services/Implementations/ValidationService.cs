@@ -11,26 +11,26 @@ namespace DoDoManBackOffice.Services.Implementations
             RuleFor(x => x.StartDate)
                 .LessThanOrEqualTo(x => x.EndDate)
                 .When(x => x.StartDate.HasValue && x.EndDate.HasValue)
-                .WithMessage("開始日期不能晚於結束日期");
+                .WithMessage("Start date cannot be later than end date");
 
             RuleFor(x => x.EndDate)
                 .LessThanOrEqualTo(DateTime.Today)
                 .When(x => x.EndDate.HasValue)
-                .WithMessage("結束日期不能超過今天");
+                .WithMessage("End date cannot be later than today");
 
             RuleFor(x => x.OrderNumber)
                 .GreaterThan(0)
                 .When(x => x.OrderNumber.HasValue)
-                .WithMessage("訂單編號必須大於0");
+                .WithMessage("Order number must be greater than 0");
 
             RuleFor(x => x.CustomerName)
                 .MaximumLength(100)
-                .WithMessage("客戶姓名不能超過100個字元");
+                .WithMessage("Customer name cannot exceed 100 characters");
 
             RuleFor(x => x.PageSize)
                 .GreaterThan(0)
                 .LessThanOrEqualTo(100)
-                .WithMessage("每頁顯示筆數必須在1-100之間");
+                .WithMessage("Page size must be between 1-100");
         }
     }
 
@@ -40,34 +40,34 @@ namespace DoDoManBackOffice.Services.Implementations
         {
             RuleFor(x => x.OrderNumber)
                 .GreaterThan(0)
-                .WithMessage("訂單編號必須大於0");
+                .WithMessage("Order number must be greater than 0");
 
             RuleFor(x => x.CustomerName)
                 .NotEmpty()
-                .WithMessage("客戶姓名不能為空")
+                .WithMessage("Customer name cannot be empty")
                 .MaximumLength(200)
-                .WithMessage("客戶姓名不能超過200個字元");
+                .WithMessage("Customer name cannot exceed 200 characters");
 
             RuleFor(x => x.OrderDate)
                 .NotEmpty()
-                .WithMessage("訂單日期不能為空");
+                .WithMessage("Order date cannot be empty");
 
             RuleFor(x => x.PaymentMethod)
                 .NotEmpty()
-                .WithMessage("支付方式不能為空")
+                .WithMessage("Payment method cannot be empty")
                 .Must(BeValidPaymentMethod)
-                .WithMessage("不支援的支付方式");
+                .WithMessage("Unsupported payment method");
 
             RuleFor(x => x.PaymentStatus)
                 .NotEmpty()
-                .WithMessage("支付狀態不能為空")
+                .WithMessage("Payment status cannot be empty")
                 .Must(BeValidPaymentStatus)
-                .WithMessage("不支援的支付狀態");
+                .WithMessage("Unsupported payment status");
         }
 
         private bool BeValidPaymentMethod(string paymentMethod)
         {
-            var validMethods = new[] { "credit card", "bank transfer", "paypal", "line pay" };
+            var validMethods = new[] { "credit card", "bank transfer" };
             return validMethods.Contains(paymentMethod?.ToLower());
         }
 
