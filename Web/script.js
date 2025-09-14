@@ -1,20 +1,60 @@
 // Shared Destination Data
 const DESTINATION_DATA = [
     {
-        title: "新天鵝堡探索之旅",
-        location: "德國",
-        price: "€21 起",
+        key: "neuschwanstein",
+        price: "€21",
+        originalPrice: "€28",
         image: "https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg",
-        intro: "探索德國最浪漫的童話城堡",
-        badge: "主打推薦"
+        discount: "25%",
+        duration: "半日遊"
     },
     {
-        title: "烏菲茲美術館藝術之旅",
-        location: "佛羅倫斯",
-        price: "€35.9 起",
+        key: "uffizi",
+        price: "€35.9",
+        originalPrice: "€45",
         image: "https://blog-static.kkday.com/zh-hk/blog/wp-content/uploads/shutterstock_673635160-644x444.jpg",
-        intro: "義大利文藝復興藝術寶庫",
-        badge: "藝術殿堂"
+        discount: "20%",
+        duration: "3小時"
+    }
+];
+
+// Package Tour Data - Selected from Italy_Germany_tours.json
+const PACKAGE_DATA = [
+    {
+        id: "TR__6274P15",
+        key: "rome",
+        price: "€232",
+        originalPrice: "€280",
+        image: "https://sematicweb.detie.cn/content/W__37747155.jpg",
+        featureCount: 4,
+        discount: "17%"
+    },
+    {
+        id: "TR__3731P161",
+        key: "milan",
+        price: "€155",
+        originalPrice: "€185",
+        image: "https://sematicweb.detie.cn/content/W__27626748.jpg",
+        featureCount: 5,
+        discount: "16%"
+    },
+    {
+        id: "TR__5326MUCNUREM",
+        key: "munich",
+        price: "€298",
+        originalPrice: "€350",
+        image: "https://sematicweb.detie.cn/content/N__296314458.jpg",
+        featureCount: 5,
+        discount: "15%"
+    },
+    {
+        id: "TR__5831P13",
+        key: "vatican",
+        price: "€115",
+        originalPrice: "€140",
+        image: "https://sematicweb.detie.cn/content/W__51395665.jpg",
+        featureCount: 6,
+        discount: "18%"
     }
 ];
 
@@ -409,40 +449,226 @@ class UIEnhancements {
     }
 }
 
-// Gallery Manager for Popular Destinations
+// Gallery Manager for Popular Attractions
 class GalleryManager {
     constructor() {
-        this.slides = [];
+        this.attractions = [];
         this.init();
     }
 
     init() {
-        this.loadDestinations();
+        this.loadAttractions();
         this.renderGallery();
+        this.setupLanguageChangeListener();
     }
 
-    loadDestinations() {
+    loadAttractions() {
         // Use shared destination data
-        this.slides = DESTINATION_DATA;
+        this.attractions = DESTINATION_DATA;
     }
 
     renderGallery() {
         const galleryGrid = document.getElementById('galleryGrid');
         if (!galleryGrid) return;
 
-        galleryGrid.innerHTML = this.slides.map(slide => `
-            <div class="gallery-item large featured fullwidth">
-                <img src="${slide.image}" alt="${slide.title}" />
-                <div class="gallery-overlay">
-                    <div class="featured-badge">${slide.badge}</div>
-                    <h3>${slide.title}</h3>
-                    <p>${slide.intro}</p>
-                    <div class="price-tag">${slide.price}</div>
-                    <div class="location-tag">📍 ${slide.location}</div>
-                    <!-- <a href="https://drive.google.com/drive/folders/1iToAnV1foN8SU-Kt2eVE-0Hg4NxhDDAo?usp=drive_link" class="gallery-cta primary">立即預訂</a> -->
+        galleryGrid.innerHTML = this.attractions.map(attraction => {
+            const i18n = window.i18n;
+            const title = i18n ? i18n.t(`gallery.${attraction.key}.title`) : `gallery.${attraction.key}.title`;
+            const subtitle = i18n ? i18n.t(`gallery.${attraction.key}.subtitle`) : `gallery.${attraction.key}.subtitle`;
+            const location = i18n ? i18n.t(`gallery.${attraction.key}.location`) : `gallery.${attraction.key}.location`;
+            const description = i18n ? i18n.t(`gallery.${attraction.key}.desc`) : `gallery.${attraction.key}.desc`;
+            const duration = i18n ? i18n.t(`gallery.${attraction.key}.duration`) : attraction.duration;
+            const badge = i18n ? i18n.t(`gallery.${attraction.key}.badge`) : `gallery.${attraction.key}.badge`;
+            const bookNow = i18n ? i18n.t('package.bookNow') : 'Book Now';
+
+            // Generate features list (3 features for attractions)
+            const features = [];
+            for (let i = 1; i <= 3; i++) {
+                const feature = i18n ? i18n.t(`gallery.${attraction.key}.feature${i}`) : `gallery.${attraction.key}.feature${i}`;
+                features.push(feature);
+            }
+
+            // Determine badge class based on badge text
+            let badgeClass = 'featured';
+            if (badge === '主打推薦' || badge === 'Featured') {
+                badgeClass = 'popular';
+            } else if (badge === '藝術殿堂' || badge === 'Art Gallery') {
+                badgeClass = 'featured';
+            } else if (badge === '經典必遊' || badge === 'Must Visit') {
+                badgeClass = 'sale';
+            }
+
+            return `
+                <div class="gallery-card" data-attraction-id="${attraction.key}">
+                    <div class="gallery-image">
+                        <img src="${attraction.image}" alt="${title}" loading="lazy" />
+                        <div class="gallery-badge ${badgeClass}">${badge}</div>
+                        <div class="gallery-discount">-${attraction.discount}</div>
+                    </div>
+                    <div class="gallery-content">
+                        <div class="gallery-header">
+                            <h3 class="gallery-title">${title}</h3>
+                            <p class="gallery-subtitle">${subtitle}</p>
+                            <div class="gallery-location">📍 ${location}</div>
+                        </div>
+                        <div class="gallery-description">
+                            <p>${description}</p>
+                        </div>
+                        <div class="gallery-features">
+                            <ul>
+                                ${features.map(feature => `<li>${feature}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="gallery-footer">
+                            <div class="gallery-duration">⏱ ${duration}</div>
+                            <div class="gallery-pricing">
+                                <div class="gallery-pricing-left">
+                                    <span class="gallery-original-price">€${attraction.originalPrice.replace('€', '')}</span>
+                                    <span class="gallery-price">${attraction.price}</span>
+                                </div>
+                            </div>
+                            <button class="gallery-book-btn" data-attraction-id="${attraction.key}">${bookNow}</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render gallery
+        document.addEventListener('languageChanged', () => {
+            this.renderGallery();
+        });
+    }
+}
+
+// Package Manager for Package Tours
+class PackageManager {
+    constructor() {
+        this.packages = [];
+        this.init();
+    }
+
+    init() {
+        this.loadPackages();
+        this.renderPackages();
+        this.setupEventListeners();
+        this.setupLanguageChangeListener();
+    }
+
+    loadPackages() {
+        // Use package data
+        this.packages = PACKAGE_DATA;
+    }
+
+    renderPackages() {
+        const packagesGrid = document.getElementById('packagesGrid');
+        if (!packagesGrid) return;
+
+        packagesGrid.innerHTML = this.packages.map(pkg => {
+            const i18n = window.i18n;
+            const title = i18n ? i18n.t(`package.${pkg.key}.title`) : `package.${pkg.key}.title`;
+            const subtitle = i18n ? i18n.t(`package.${pkg.key}.subtitle`) : `package.${pkg.key}.subtitle`;
+            const location = i18n ? i18n.t(`package.${pkg.key}.location`) : `package.${pkg.key}.location`;
+            const description = i18n ? i18n.t(`package.${pkg.key}.description`) : `package.${pkg.key}.description`;
+            const duration = i18n ? i18n.t(`package.${pkg.key}.duration`) : `package.${pkg.key}.duration`;
+            const badge = i18n ? i18n.t(`package.${pkg.key}.badge`) : `package.${pkg.key}.badge`;
+            const bookNow = i18n ? i18n.t('package.bookNow') : 'Book Now';
+
+            // Generate features list
+            const features = [];
+            for (let i = 1; i <= pkg.featureCount; i++) {
+                const feature = i18n ? i18n.t(`package.${pkg.key}.feature${i}`) : `package.${pkg.key}.feature${i}`;
+                features.push(feature);
+            }
+
+            // Determine badge class based on badge text
+            let badgeClass = 'featured';
+            if (badge === '特價優惠' || badge === 'Special Offer') {
+                badgeClass = 'sale';
+            } else if (badge === '熱門推薦' || badge === 'Popular Choice') {
+                badgeClass = 'popular';
+            }
+
+            return `
+                <div class="package-card" data-package-id="${pkg.id}">
+                    <div class="package-image">
+                        <img src="${pkg.image}" alt="${title}" loading="lazy" />
+                        <div class="package-badge ${badgeClass}">${badge}</div>
+                        <div class="package-discount">-${pkg.discount}</div>
+                    </div>
+                    <div class="package-content">
+                        <div class="package-header">
+                            <h3 class="package-title">${title}</h3>
+                            <p class="package-subtitle">${subtitle}</p>
+                            <div class="package-location">📍 ${location}</div>
+                        </div>
+                        <div class="package-description">
+                            <p>${description}</p>
+                        </div>
+                        <div class="package-features">
+                            <ul>
+                                ${features.map(feature => `<li>${feature}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="package-footer">
+                            <div class="package-duration">⏱ ${duration}</div>
+                            <div class="package-pricing">
+                                <div class="package-pricing-left">
+                                    <span class="package-original-price">€${pkg.originalPrice.replace('€', '')}</span>
+                                    <span class="package-price">${pkg.price}</span>
+                                </div>
+                            </div>
+                            <button class="package-book-btn" data-package-id="${pkg.id}">${bookNow}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    setupEventListeners() {
+        // Add event listeners for book buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('package-book-btn')) {
+                const packageId = e.target.getAttribute('data-package-id');
+                this.handlePackageBooking(packageId);
+            }
+        });
+    }
+
+    setupLanguageChangeListener() {
+        // Listen for language change events and re-render packages
+        document.addEventListener('languageChanged', () => {
+            this.renderPackages();
+        });
+    }
+
+
+    handlePackageBooking(packageId) {
+        const selectedPackage = this.packages.find(pkg => pkg.id === packageId);
+        if (selectedPackage) {
+            const i18n = window.i18n;
+            const title = i18n ? i18n.t(`package.${selectedPackage.key}.title`) : selectedPackage.key;
+
+            // Track analytics
+            if (window.analytics) {
+                window.analytics.track('package_booking_clicked', {
+                    package_id: packageId,
+                    package_title: title,
+                    package_price: selectedPackage.price
+                });
+            }
+
+            // In a real app, this might open booking flow or redirect to booking page
+            const currentLang = i18n ? i18n.getCurrentLanguage() : 'zh-TW';
+            if (currentLang === 'en') {
+                alert(`Booking: ${title}\nPrice: ${selectedPackage.price}\n\nRedirecting to booking page...`);
+            } else {
+                alert(`準備預訂：${title}\n價格：${selectedPackage.price}\n\n即將跳轉至預訂頁面...`);
+            }
+        }
     }
 }
 
@@ -636,6 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const performanceOptimizer = new PerformanceOptimizer();
     const uiEnhancements = new UIEnhancements();
     const galleryManager = new GalleryManager();
+    const packageManager = new PackageManager();
     const destinationCarousel = new DestinationCarousel();
 
     // Track page load
