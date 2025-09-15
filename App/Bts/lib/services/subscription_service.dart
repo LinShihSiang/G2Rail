@@ -15,7 +15,7 @@ class SubscriptionService {
   Future<SubscriptionResponse> subscribe(SubscriptionRequest request) async {
     try {
       final response = await httpClient.post(
-        Uri.parse('$baseUrl/api/subscribe'),
+        Uri.parse('$baseUrl'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -23,8 +23,10 @@ class SubscriptionService {
       );
 
       if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        return SubscriptionResponse.fromJson(responseData);
+        return const SubscriptionResponse(
+          success: true,
+          message: 'Subscription successful! Thank you for subscribing.',
+        );
       } else {
         return const SubscriptionResponse(
           success: false,
