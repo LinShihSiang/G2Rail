@@ -6,7 +6,7 @@
 
 <!-- Statistics Overview -->
 <div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
         <div class="card stats-card border-start-primary">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -22,7 +22,7 @@
         </div>
     </div>
 
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
         <div class="card stats-card border-start-success">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -38,7 +38,7 @@
         </div>
     </div>
 
-    <div class="col-lg-3 col-md-6 mb-4">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
         <div class="card stats-card border-start-warning">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
@@ -54,16 +54,32 @@
         </div>
     </div>
 
-    <div class="col-lg-3 col-md-6 mb-4">
-        <div class="card stats-card border-start-info">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="card stats-card border-start-success">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
                         <h3>@Model.SuccessfulOrderCount</h3>
-                        <p class="mb-0">Successful Orders</p>
+                        <p class="mb-0">Success Orders</p>
                     </div>
                     <div class="align-self-center">
-                        <i class="bi bi-check-circle fs-1 text-info"></i>
+                        <i class="bi bi-check-circle fs-1 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+        <div class="card stats-card border-start-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>@Model.SubscriberCount</h3>
+                        <p class="mb-0">Subscribe Count</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-people fs-1 text-info"></i>
                     </div>
                 </div>
             </div>

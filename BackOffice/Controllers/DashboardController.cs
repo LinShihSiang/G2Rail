@@ -1,19 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
 using DoDoManBackOffice.Services.Interfaces;
 using DoDoManBackOffice.Models.ViewModels;
+using DoDoManBackOffice.Services;
 
 namespace DoDoManBackOffice.Controllers
 {
     public class DashboardController : Controller
     {
         private readonly IOrderService _orderService;
+        private readonly IN8NApiService _n8nApiService;
         private readonly ILogger<DashboardController> _logger;
 
         public DashboardController(
             IOrderService orderService,
+            IN8NApiService n8nApiService,
             ILogger<DashboardController> logger)
         {
             _orderService = orderService;
+            _n8nApiService = n8nApiService;
             _logger = logger;
         }
 
@@ -46,10 +50,14 @@ namespace DoDoManBackOffice.Controllers
                 };
                 var recentOrders = await _orderService.GetOrdersAsync(recentOrdersFilter);
 
+                // Get subscriber count from N8N API
+                var subscribers = await _n8nApiService.GetSubscribersAsync();
+
                 viewModel.TodayOrderCount = todaySummary.TotalOrders;
                 viewModel.MonthOrderCount = monthSummary.TotalOrders;
                 viewModel.PendingOrderCount = todaySummary.PendingOrders;
                 viewModel.SuccessfulOrderCount = todaySummary.SuccessfulOrders;
+                viewModel.SubscriberCount = subscribers.Count;
 
                 viewModel.StatusCounts = statusCounts.ToList();
                 viewModel.PaymentMethodSummary = paymentSummary.ToList();
@@ -77,6 +85,9 @@ namespace DoDoManBackOffice.Controllers
         // Status Counts
         public int PendingOrderCount { get; set; }
         public int SuccessfulOrderCount { get; set; }
+
+        // Subscriber Count from N8N API
+        public int SubscriberCount { get; set; }
 
         // Detailed Statistics
         public List<OrderStatusCountDto> StatusCounts { get; set; } = new();
