@@ -6,7 +6,7 @@ import '../repos/models/product.dart';
 import '../repos/models/product_group.dart';
 import '../repos/models/subscription_request.dart';
 import '../repos/germany_tours_repo.dart';
-import 'product_schloss_neuschwanstein_page.dart' as schloss_page;
+import 'product_schloss_neuschwanstein_page.dart' as schloss;
 import 'germany_products_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -180,7 +180,7 @@ class ProductCard extends StatelessWidget {
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => schloss_page.ProductPage(product: product),
+                builder: (context) => schloss.ProductPage(product: product),
               ),
             );
           }
@@ -197,10 +197,37 @@ class ProductCard extends StatelessWidget {
                   child: Image.asset(
                     product.imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
-                      color: Color(0xFFE0E0E0),
-                      child: Center(child: Icon(Icons.image_not_supported)),
-                    ),
+                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded) {
+                        return child;
+                      }
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(seconds: 1),
+                        curve: Curves.easeOut,
+                        child: child,
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint('Image loading error for ${product.imageUrl}: $error');
+                      return ColoredBox(
+                        color: const Color(0xFFE0E0E0),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.image_not_supported, size: 32),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Image not found\n${product.imageUrl}',
+                                style: const TextStyle(fontSize: 10),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

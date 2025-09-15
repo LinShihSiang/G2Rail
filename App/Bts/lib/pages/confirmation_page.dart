@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:g2railsample/pages/home_page.dart';
 import '../repos/product_repo.dart';
+import '../services/subscription_service.dart';
 
 class ConfirmationPage extends StatelessWidget {
   final Map<String, dynamic> orderDetails;
@@ -325,8 +327,15 @@ class ConfirmationPage extends StatelessWidget {
 
   void _goHome(BuildContext context) {
     final repo = InMemoryProductRepo();
+    final subscriptionService = SubscriptionService(
+      baseUrl: 'https://api.dodoman-travel.com',
+      httpClient: http.Client(),
+    );
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => HomePage(repo: repo)),
+      MaterialPageRoute(builder: (context) => HomePage(
+        repo: repo,
+        subscriptionService: subscriptionService,
+      )),
       (route) => false,
     );
   }

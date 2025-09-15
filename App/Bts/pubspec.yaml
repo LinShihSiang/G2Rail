@@ -31,11 +31,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/schloss_neuschwanstein.jpg
-    - assets/images/uffizi_gallery_art.jpg
-    - assets/images/germany_products.jpg
-    - data/Italy_Germany_tours.json
-    - data/80_Germany.json
+    - assets/images/
+    - data/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
