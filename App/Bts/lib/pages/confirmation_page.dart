@@ -66,7 +66,7 @@ class ConfirmationPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     paymentSuccess
-                        ? 'Your travel booking has been successfully confirmed. A confirmation email has been sent to ${passengerInfo['email']}.'
+                        ? 'Your travel booking has been successfully confirmed. A confirmation email has been sent to ${passengerInfo['email'] ?? 'your email address'}.'
                         : 'We were unable to process your booking. Please try again or contact customer support.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -136,7 +136,7 @@ class ConfirmationPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        product['title'],
+                        product['title'] ?? 'Unknown Product',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -144,7 +144,7 @@ class ConfirmationPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildDetailRow('Travel Date', DateFormat('EEEE, MMMM d, y').format(travelDate)),
-                      _buildDetailRow('Duration', product['duration']),
+                      _buildDetailRow('Duration', product['duration'] ?? 'Not specified'),
                       _buildDetailRow('Travelers', '$quantity person${quantity > 1 ? 's' : ''}'),
                       _buildDetailRow('Departure', 'Frankfurt Central Station - 08:00'),
                       const SizedBox(height: 12),
@@ -176,9 +176,9 @@ class ConfirmationPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildDetailRow('Name', passengerInfo['name']),
-                      _buildDetailRow('Email', passengerInfo['email']),
-                      _buildDetailRow('Phone', passengerInfo['phone']),
+                      _buildDetailRow('Name', passengerInfo['name'] ?? 'Not provided'),
+                      _buildDetailRow('Email', passengerInfo['email'] ?? 'Not provided'),
+                      _buildDetailRow('Phone', passengerInfo['phone'] ?? 'Not provided'),
                     ],
                   ),
                 ),

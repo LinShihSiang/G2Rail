@@ -350,12 +350,17 @@ class _PaymentPageState extends State<PaymentPage> {
         customerEmail: passengerInfo['email'],
         customerName: passengerInfo['name'],
         bookingDetails: {
-          'from': 'Frankfurt',
-          'to': product['title'],
-          'date': DateFormat('EEEE, MMMM d, y').format(travelDate),
-          'time': '08:00',
-          'passengers': '$quantity',
-          'ticketType': product['duration'],
+          'productName': product['title'],
+          'orderId': 'ORD_${DateTime.now().millisecondsSinceEpoch}',
+          'mainBookerName': passengerInfo['name'],
+          'email': passengerInfo['email'],
+          'dateTime': DateFormat('EEEE, MMMM d, y').format(travelDate),
+          'adultCount': quantity,
+          'childCount': 0,
+          'unitPrice': product['price'],
+          'totalAmount': totalPrice,
+          'currency': 'USD',
+          'companions': [], // No companions data available
         },
         paymentInfo: {
           'amount': totalPrice,

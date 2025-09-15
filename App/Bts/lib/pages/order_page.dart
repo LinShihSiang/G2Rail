@@ -10,6 +10,7 @@ import '../services/payment_service.dart';
 import '../services/email_service.dart';
 import '../services/order_api_service.dart';
 import '../models/order_draft.dart';
+import 'confirmation_page.dart';
 
 class OrderPage extends StatelessWidget {
   final Product product;
@@ -586,7 +587,7 @@ class _OrderPageContentState extends State<_OrderPageContent> {
 
       // Navigate to confirmation page
       if (context.mounted) {
-        _showSuccessAndNavigate(context, orderId);
+        _showSuccessAndNavigate(context, orderId, orderDraft, viewModel);
       }
 
     } catch (e) {
@@ -680,7 +681,7 @@ Total Amount: ${orderDraft.totalAmount} ${orderDraft.currency}
     );
   }
 
-  void _showSuccessAndNavigate(BuildContext context, String orderId) {
+  void _showSuccessAndNavigate(BuildContext context, String orderId, OrderDraft orderDraft, OrderStep1ViewModelImpl viewModel) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Payment successful! Confirmation email sent.'),
@@ -692,9 +693,34 @@ Total Amount: ${orderDraft.totalAmount} ${orderDraft.currency}
     // Navigate to confirmation page after a brief delay
     Future.delayed(const Duration(seconds: 1), () {
       if (context.mounted) {
-        Navigator.of(context).pushNamed(
-          '/confirmation',
-          arguments: {'orderId': orderId},
+        // Create order details for confirmation page
+        final orderDetails = {
+          'product': {
+            'name': viewModel.product.name,
+            'description': viewModel.product.propaganda,
+            'id': viewModel.product.id,
+          },
+          'quantity': viewModel.totalPeople,
+          'totalPrice': viewModel.totalAmount.toDouble(),
+          'travelDate': orderDraft.dateTime,
+          'passengerInfo': {
+            'mainBooker': orderDraft.mainFullNameEn,
+            'email': orderDraft.email,
+            'companions': orderDraft.companions.map((c) => {
+              'name': c.fullNameEn,
+              'isChild': c.isChild,
+            }).toList(),
+          },
+          'orderId': orderId,
+        };
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ConfirmationPage(
+              orderDetails: orderDetails,
+              paymentSuccess: true,
+            ),
+          ),
         );
       }
     });
