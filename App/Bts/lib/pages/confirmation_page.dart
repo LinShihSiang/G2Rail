@@ -328,7 +328,7 @@ class ConfirmationPage extends StatelessWidget {
   void _goHome(BuildContext context) {
     final repo = InMemoryProductRepo();
     final subscriptionService = SubscriptionService(
-      baseUrl: 'https://api.dodoman-travel.com',
+      baseUrl: 'https://howardmei.app.n8n.cloud/webhook/set-subscribe',
       httpClient: http.Client(),
     );
     Navigator.of(context).pushAndRemoveUntil(

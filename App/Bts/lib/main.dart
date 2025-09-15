@@ -9,7 +9,7 @@ void main() {
   PaymentService.initialize();
   final repo = InMemoryProductRepo();
   final subscriptionService = SubscriptionService(
-    baseUrl: 'https://api.dodoman-travel.com', // Replace with actual API endpoint
+    baseUrl: 'https://howardmei.app.n8n.cloud/webhook/set-subscribe', // Replace with actual API endpoint
     httpClient: http.Client(),
   );
   runApp(MyApp(
