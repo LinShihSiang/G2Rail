@@ -15,7 +15,7 @@ namespace DoDoManBackOffice.Models.ViewModels
         public DateTime? EndDate { get; set; }
 
         [Display(Name = "Order Number")]
-        public int? OrderNumber { get; set; }
+        public string? OrderNumber { get; set; }
 
         [Display(Name = "Customer Name")]
         [StringLength(100)]

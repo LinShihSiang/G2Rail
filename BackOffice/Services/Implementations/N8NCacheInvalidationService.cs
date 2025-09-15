@@ -29,7 +29,7 @@ namespace DoDoManBackOffice.Services.Implementations
             }
         }
 
-        public async Task InvalidateOrderCacheAsync(int orderNumber)
+        public async Task InvalidateOrderCacheAsync(string orderNumber)
         {
             try
             {

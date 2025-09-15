@@ -8,7 +8,7 @@ namespace DoDoManBackOffice.Models.DTOs
         public int RowNumber { get; set; }
 
         [JsonPropertyName("id")]
-        public int OrderNumber { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
 
         [JsonPropertyName("date")]
         public string OrderDate { get; set; } = string.Empty;

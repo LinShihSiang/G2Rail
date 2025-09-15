@@ -6,7 +6,7 @@ namespace DoDoManBackOffice.Services
     public interface IN8NApiService
     {
         Task<List<N8NOrderResponseDto>> GetOrdersAsync();
-        Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
+        Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, string? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
     }
 
     public class N8NApiService : IN8NApiService
@@ -45,16 +45,16 @@ namespace DoDoManBackOffice.Services
             }
         }
 
-        public async Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
+        public async Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, string? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
         {
             var allOrders = await GetOrdersAsync();
 
             // Apply client-side filtering using LINQ to Objects (not IQueryable)
             var filteredOrders = allOrders.AsEnumerable();
 
-            if (orderNumber.HasValue)
+            if (!string.IsNullOrEmpty(orderNumber))
             {
-                filteredOrders = filteredOrders.Where(o => o.OrderNumber == orderNumber.Value);
+                filteredOrders = filteredOrders.Where(o => o.OrderNumber.Contains(orderNumber, StringComparison.OrdinalIgnoreCase));
             }
 
             if (!string.IsNullOrEmpty(customerName))

@@ -58,7 +58,7 @@ namespace DoDoManBackOffice.Controllers
         }
 
         // GET: Order/Details/5
-        public async Task<IActionResult> Details(int orderNumber)
+        public async Task<IActionResult> Details(string orderNumber)
         {
             try
             {

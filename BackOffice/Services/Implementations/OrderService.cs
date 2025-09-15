@@ -83,7 +83,7 @@ namespace DoDoManBackOffice.Services.Implementations
             }
         }
 
-        public async Task<OrderViewModel?> GetOrderByNumberAsync(int orderNumber)
+        public async Task<OrderViewModel?> GetOrderByNumberAsync(string orderNumber)
         {
             try
             {
@@ -112,7 +112,7 @@ namespace DoDoManBackOffice.Services.Implementations
             }
         }
 
-        public async Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
+        public async Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, string? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus)
         {
             try
             {
@@ -135,7 +135,7 @@ namespace DoDoManBackOffice.Services.Implementations
             return OrderViewModel.FromN8NDto(n8nOrder);
         }
 
-        public async Task<bool> ValidateOrderNumberAsync(int orderNumber)
+        public async Task<bool> ValidateOrderNumberAsync(string orderNumber)
         {
             try
             {
@@ -205,27 +205,22 @@ namespace DoDoManBackOffice.Services.Implementations
             }
         }
 
-        public async Task<IEnumerable<int>> GetOrderNumberSuggestionsAsync(string partialOrderNumber)
+        public async Task<IEnumerable<string>> GetOrderNumberSuggestionsAsync(string partialOrderNumber)
         {
             try
             {
                 var orders = await GetOrdersFromN8NAsync();
 
-                if (int.TryParse(partialOrderNumber, out int partialNumber))
-                {
-                    return orders
-                        .Where(o => o.OrderNumber.ToString().Contains(partialOrderNumber))
-                        .Select(o => o.OrderNumber)
-                        .Take(10)
-                        .ToList();
-                }
-
-                return new List<int>();
+                return orders
+                    .Where(o => o.OrderNumber.Contains(partialOrderNumber, StringComparison.OrdinalIgnoreCase))
+                    .Select(o => o.OrderNumber)
+                    .Take(10)
+                    .ToList();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting order number suggestions");
-                return new List<int>();
+                return new List<string>();
             }
         }
 
@@ -315,9 +310,9 @@ namespace DoDoManBackOffice.Services.Implementations
         {
             var filteredOrders = orders.AsEnumerable();
 
-            if (filter.OrderNumber.HasValue)
+            if (!string.IsNullOrEmpty(filter.OrderNumber))
             {
-                filteredOrders = filteredOrders.Where(o => o.OrderNumber == filter.OrderNumber.Value);
+                filteredOrders = filteredOrders.Where(o => o.OrderNumber.Contains(filter.OrderNumber, StringComparison.OrdinalIgnoreCase));
             }
 
             if (!string.IsNullOrEmpty(filter.CustomerName))

@@ -7,19 +7,19 @@ namespace DoDoManBackOffice.Services.Interfaces
     {
         // Query Methods (N8N API Based)
         Task<OrderListViewModel> GetOrdersAsync(FilterViewModel filter);
-        Task<OrderViewModel?> GetOrderByNumberAsync(int orderNumber);
+        Task<OrderViewModel?> GetOrderByNumberAsync(string orderNumber);
         Task<IEnumerable<OrderViewModel>> GetOrdersByCustomerAsync(string customerName);
 
         // N8N API Integration
         Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync();
-        Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, int? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
+        Task<IEnumerable<N8NOrderResponseDto>> GetOrdersFromN8NAsync(DateTime? startDate, DateTime? endDate, string? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
 
         // Data Transformation
         Task<IEnumerable<OrderViewModel>> TransformN8NDataAsync(IEnumerable<N8NOrderResponseDto> n8nData);
         OrderViewModel TransformSingleOrder(N8NOrderResponseDto n8nOrder);
 
         // Business Logic (Read-Only Operations)
-        Task<bool> ValidateOrderNumberAsync(int orderNumber);
+        Task<bool> ValidateOrderNumberAsync(string orderNumber);
         Task<OrderSummaryDto> GetOrderSummaryAsync(DateTime? startDate = null, DateTime? endDate = null);
 
         // Reporting and Analytics
@@ -29,7 +29,7 @@ namespace DoDoManBackOffice.Services.Interfaces
 
         // Search and Filter (Client-side processing)
         Task<IEnumerable<OrderViewModel>> SearchOrdersAsync(string searchTerm);
-        Task<IEnumerable<int>> GetOrderNumberSuggestionsAsync(string partialOrderNumber);
+        Task<IEnumerable<string>> GetOrderNumberSuggestionsAsync(string partialOrderNumber);
     }
 
     // Supporting DTOs

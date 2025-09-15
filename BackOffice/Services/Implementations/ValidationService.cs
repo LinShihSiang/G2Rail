@@ -19,9 +19,9 @@ namespace DoDoManBackOffice.Services.Implementations
                 .WithMessage("End date cannot be later than today");
 
             RuleFor(x => x.OrderNumber)
-                .GreaterThan(0)
-                .When(x => x.OrderNumber.HasValue)
-                .WithMessage("Order number must be greater than 0");
+                .NotEmpty()
+                .When(x => !string.IsNullOrEmpty(x.OrderNumber))
+                .WithMessage("Order number cannot be empty");
 
             RuleFor(x => x.CustomerName)
                 .MaximumLength(100)
@@ -39,8 +39,8 @@ namespace DoDoManBackOffice.Services.Implementations
         public N8NOrderResponseValidator()
         {
             RuleFor(x => x.OrderNumber)
-                .GreaterThan(0)
-                .WithMessage("Order number must be greater than 0");
+                .NotEmpty()
+                .WithMessage("Order number cannot be empty");
 
             RuleFor(x => x.CustomerName)
                 .NotEmpty()
