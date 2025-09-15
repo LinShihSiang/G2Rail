@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dodoman - 新天鵝堡專屬體驗 (模擬 Google Play 下載頁面)</title>
+  <style>
+    /* Reset */
+    *{box-sizing:border-box}
+    body{font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', 'Helvetica Neue', Arial; margin:0; background:#f5f7fb; color:#202124}
+    a {color:inherit; text-decoration:none}
+
+    /* Container */
+    .container{max-width:1100px;margin:32px auto;padding:24px}
+    .app-card{display:flex;gap:24px;background:white;border-radius:12px;padding:20px;box-shadow:0 6px 20px rgba(15,23,42,0.06)}
+
+    /* Left column (icon + install) */
+    .left{width:260px;flex:0 0 260px}
+    .app-icon{width:120px;height:120px;border-radius:28px;overflow:hidden;box-shadow:0 6px 18px rgba(60,64,67,0.12)}
+    .app-title{font-size:22px;font-weight:700;margin:12px 0 4px}
+    .app-developer{color:#5f6368;margin-bottom:12px}
+
+    .install-row{display:flex;gap:12px;align-items:center}
+    .install-btn{background:#1a73e8;color:white;border:none;padding:12px 18px;border-radius:8px;font-weight:600;cursor:pointer;box-shadow:0 6px 14px rgba(26,115,232,0.18)}
+    .secondary-btn{background:transparent;border:1px solid #e0e0e0;padding:10px 14px;border-radius:8px;cursor:pointer;color:#202124}
+    .rating-bubble{background:#202124;color:white;padding:6px 10px;border-radius:20px;font-weight:700}
+
+    /* Right column */
+    .right{flex:1}
+    .hero-screenshots{display:flex;gap:12px;flex-wrap:wrap}
+    .screenshot{width:calc(33.333% - 8px);border-radius:10px;overflow:hidden;box-shadow:0 8px 18px rgba(60,64,67,0.08)}
+    .screenshot img{width:100%;display:block}
+
+    .meta{display:flex;gap:18px;margin-top:14px;color:#5f6368}
+    .meta div{display:flex;gap:8px;align-items:center}
+
+    /* Description */
+    .section{margin-top:26px;background:white;padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.04)}
+    .section h2{margin:0 0 12px;font-size:18px}
+    .description p{line-height:1.65;color:#3c4043}
+
+    /* Reviews */
+    .review{display:flex;gap:14px;padding:14px 0;border-top:1px solid #f1f3f4}
+    .review:first-child{border-top:0}
+    .avatar{width:44px;height:44px;border-radius:50%;background:#dfe7ff;display:flex;align-items:center;justify-content:center;color:#1a73e8;font-weight:700}
+    .review-body{flex:1}
+    .review-meta{color:#5f6368;font-size:13px}
+
+    /* Permissions & Similar */
+    .list{display:flex;flex-wrap:wrap;gap:12px}
+    .chip{background:#f1f3f4;padding:8px 10px;border-radius:8px;color:#202124}
+
+    /* Footer */
+    footer{margin-top:28px;text-align:center;color:#70757a;font-size:13px}
+
+    /* Responsive */
+    @media (max-width:900px){
+      .app-card{flex-direction:column}
+      .left{width:100%;display:flex;align-items:center;justify-content:space-between}
+      .right{width:100%}
+      .screenshot{width:calc(50% - 8px)}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- App header card -->
+    <div class="app-card" role="region" aria-label="Dodoman App Download Preview">
+      <div class="left">
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="app-icon" aria-hidden="true">
+            <img src="https://www.travelliker.com.hk/img/upload/img/%E6%96%B0%E5%A4%A9%E9%B5%9D%E5%A0%A102.jpg" alt="Dodoman 新天鵝堡 App 圖示" style="width:120px;height:120px;object-fit:cover"/>
+          </div>
+          <div>
+            <div class="app-title">Dodoman — 新天鵝堡專屬體驗</div>
+            <div class="app-developer">Dodoman Travel • 旅遊體驗</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="rating-bubble" aria-hidden="true">4.8</div>
+              <div style="color:#5f6368">(4,256 則評分) • 100k+ 下載</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:18px">
+          <div class="install-row">
+            <button id="installBtn" class="install-btn" aria-label="下載 Dodoman">安裝</button>
+            <button id="openBtn" class="secondary-btn" style="display:none">開啟</button>
+            <button id="webBtn" class="secondary-btn">在網頁檢視</button>
+          </div>
+          <div style="margin-top:10px;color:#5f6368;font-size:13px">提供官方導覽、飯店 9 折優惠與全程協助</div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="hero-screenshots" aria-hidden="true">
+          <div class="screenshot"><img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=60" alt="App Screenshot 1"/></div>
+          <div class="screenshot"><img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=800&q=60" alt="App Screenshot 2"/></div>
+          <div class="screenshot"><img src="https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=800&q=60" alt="App Screenshot 3"/></div>
+        </div>
+
+        <div class="meta">
+          <div>分類：旅遊與本地</div>
+          <div>適合年齡：所有年齡層</div>
+          <div>大小：45 MB</div>
+        </div>
+
+        <div style="margin-top:14px;color:#5f6368">版本：3.1.2 • 更新日期：2025/08/10</div>
+
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="section description" role="article" aria-labelledby="descHeading">
+      <h2 id="descHeading">應用程式簡介</h2>
+      <p>Dodoman 提供一站式的新天鵝堡（Neuschwanstein）深度體驗：由官方導覽員帶領的專屬導覽、嚴選飯店 9 折優惠、即時客服協助與線上訂票服務。無論您是首次拜訪還是重遊舊地，Dodoman 都能替您安排最貼心的童話行程。</p>
+
+      <h3 style="margin-top:12px">主要功能</h3>
+      <ul>
+        <li>官方導覽預約：直接在 App 中預約指定語言的官方導覽員。</li>
+        <li>飯店 9 折優惠：透過 Dodoman 訂房享市價 9 折專屬優惠。</li>
+        <li>行程提醒與地圖導覽：獨家路線推薦與離線地圖支援。</li>
+        <li>遇到住宿問題？我們協助您與飯店溝通，保障旅遊品質。</li>
+      </ul>
+
+      <h3 style="margin-top:12px">為何選擇 Dodoman</h3>
+      <p>我們的團隊與當地官方密切合作，提供原廠導覽資源與嚴格把關的飯店名單，並以『體驗優先』為設計核心，打造安心、深入的旅遊體驗。</p>
+    </div>
+
+    <!-- Reviews -->
+    <div class="section" aria-labelledby="reviewsHeading">
+      <h2 id="reviewsHeading">使用者評價</h2>
+      <div class="review">
+        <div class="avatar">LY</div>
+        <div class="review-body">
+          <div style="font-weight:700">非常棒的導覽體驗</div>
+          <div class="review-meta">2025年8月 • 5 星</div>
+          <div>導覽員知識豐富，帶我們看到很多小角落的故事。飯店也幫我們協調到很好的房型，超推薦！</div>
+        </div>
+      </div>
+
+      <div class="review">
+        <div class="avatar">MK</div>
+        <div class="review-body">
+          <div style="font-weight:700">很方便的訂票工具</div>
+          <div class="review-meta">2025年7月 • 4 星</div>
+          <div>App 使用介面直覺，預訂流程順暢。唯一希望加入更多語言選項。</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:12px"><button class="secondary-btn" id="moreReviews">查看全部評價</button></div>
+    </div>
+
+    <!-- Permissions & Details -->
+    <div class="section" aria-labelledby="permHeading">
+      <h2 id="permHeading">權限與細節</h2>
+      <div class="list">
+        <div class="chip">位置：在地地圖與導覽定位</div>
+        <div class="chip">存取相簿：上傳證件或照片（選用）</div>
+        <div class="chip">推播通知：行程提醒與即時客服</div>
+        <div class="chip">離線地圖資料：儲存於裝置</div>
+      </div>
+
+      <h3 style="margin-top:12px">聯絡資訊</h3>
+      <p>客服信箱：support@dodoman.example<br> 官方網站：<a href="#">https://www.dodoman.example</a></p>
+    </div>
+
+    <!-- Similar apps -->
+    <div class="section" aria-labelledby="similarHeading">
+      <h2 id="similarHeading">相似應用程式</h2>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="width:220px;background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 16px rgba(15,23,42,0.04)">
+          <img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=600&q=60" alt="Sample App" style="width:100%;border-radius:8px;"/>
+          <div style="font-weight:700;margin-top:8px">Castle Guide</div>
+          <div style="color:#5f6368">4.6 • 30k 下載</div>
+        </div>
+
+        <div style="width:220px;background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 16px rgba(15,23,42,0.04)">
+          <img src="https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=600&q=60" alt="Sample App 2" style="width:100%;border-radius:8px;"/>
+          <div style="font-weight:700;margin-top:8px">Euro Travel Pass</div>
+          <div style="color:#5f6368">4.5 • 80k 下載</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      此為模擬下載頁面（示範用途），非 Google Play 實際頁面。
+    </footer>
+
+  </div>
+
+  <script>
+    // Platform detection + deep link behavior
+    const installBtn = document.getElementById('installBtn');
+    const openBtn = document.getElementById('openBtn');
+    const webBtn = document.getElementById('webBtn');
+
+    const appScheme = 'dodoman://';
+    const playStoreURL = 'https://play.google.com/store/apps/details?id=com.dodoman.app';
+    const appStoreURL = 'https://apps.apple.com/app/id000000000';
+
+    function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream; }
+    function isAndroid() { return /Android/.test(navigator.userAgent); }
+
+    // Try to open app if installed; otherwise redirect to store
+    function tryOpenAppOrStore() {
+      if (isAndroid()) {
+        // Attempt to open using intent or custom scheme
+        const start = Date.now();
+        window.location = appScheme;
+        setTimeout(() => {
+          if (Date.now() - start < 2000) {
+            window.open(playStoreURL, '_blank');
+          }
+        }, 1200);
+      } else if (isIOS()) {
+        // iOS fallback
+        window.location = appScheme;
+        setTimeout(() => {
+          window.location = appStoreURL;
+        }, 1200);
+      } else {
+        // Desktop: show modal or redirect to web preview
+        window.open(playStoreURL, '_blank');
+      }
+    }
+
+    installBtn.addEventListener('click', () => {
+      tryOpenAppOrStore();
+    });
+
+    webBtn.addEventListener('click', () => {
+      alert('在網頁檢視示範：即將前往 Dodoman 網站（模擬）');
+      window.open('https://www.dodoman.example', '_blank');
+    });
+
+    // More reviews - smooth scroll
+    document.getElementById('moreReviews').addEventListener('click', () => {
+      alert('顯示全部評價（模擬）');
+    });
+
+    // Simulate app installed state (for demo)
+    (function simulateInstalled() {
+      // If URL contains ?installed=true show Open instead of Install
+      const params = new URLSearchParams(location.search);
+      if (params.get('installed') === 'true') {
+        installBtn.style.display = 'none';
+        openBtn.style.display = 'inline-block';
+        openBtn.addEventListener('click', () => { window.location = appScheme; });
+      }
+    })();
+  </script>
+</body>
+</html>
