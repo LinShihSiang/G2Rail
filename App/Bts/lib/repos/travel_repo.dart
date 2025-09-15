@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'dart:developer' as developer;
 
 class SearchCriteria {
@@ -29,6 +30,18 @@ class SearchCriteria {
     this.infant,
   );
 
+  SearchCriteria.fromDateTime(
+    this.from,
+    this.to,
+    DateTime dateTime,
+    this.time,
+    this.adult,
+    this.child,
+    this.junior,
+    this.senior,
+    this.infant,
+  ) : date = DateFormat('yyyy-MM-dd').format(dateTime.add(const Duration(days: 7)));
+
   String toQuery() {
     return "from=$from&to=$to&date=$date&time=$time&adult=$adult&child=$child&junior=$junior&senior=$senior&infant=$infant";
   }
@@ -43,7 +56,7 @@ class SearchCriteria {
       "child": child,
       "junior": junior,
       "senior": senior,
-      "infant": infant,
+      "infant": infant
     };
   }
 }
@@ -62,7 +75,7 @@ class TravelRepo {
   });
 
   Map<String, String> getAuthorizationHeaders(Map<String, dynamic> params) {
-    var timestamp = DateTime.now();
+   var timestamp = DateTime.now();
     params['t'] = (timestamp.millisecondsSinceEpoch ~/ 1000).toString();
     params['api_key'] = apiKey;
 
@@ -76,13 +89,6 @@ class TravelRepo {
 
     String hashString = buffer.toString();
     String authorization = md5.convert(utf8.encode(hashString)).toString();
-
-    // Debug logging for authorization
-    developer.log('[TravelRepo] Authorization Debug:', name: 'G2Rail');
-    developer.log('  Params: $params', name: 'G2Rail');
-    developer.log('  Sorted keys: $sortedKeys', name: 'G2Rail');
-    developer.log('  Hash string: $hashString', name: 'G2Rail');
-    developer.log('  Authorization hash: $authorization', name: 'G2Rail');
 
     return {
       "From": apiKey,
@@ -119,7 +125,9 @@ class TravelRepo {
         '$baseUrl/api/v2/online_solutions/?${criteria.toQuery()}';
 
     final headers = getAuthorizationHeaders(criteria.toMap());
-    developer.log('  Headers: $headers', name: 'G2Rail');
+    developer.log('Headers: $headers', name: 'G2Rail');
+    developer.log('SolutionUrl: $solutionUrl', name: 'G2Rail');
+
 
     final solutionResponse = await httpClient.get(
       Uri.parse(solutionUrl),
@@ -133,25 +141,13 @@ class TravelRepo {
     developer.log('  Response Body: ${solutionResponse.body}', name: 'G2Rail');
 
     if (solutionResponse.statusCode != 200) {
-      developer.log('[TravelRepo] ERROR: Non-200 status code', name: 'G2Rail');
       throw Exception('error getting solutions - Status: ${solutionResponse.statusCode}, Body: ${solutionResponse.body}');
     }
 
     final solutionsJson = jsonDecode(solutionResponse.body);
 
-    // Debug logging for parsed response
-    developer.log('[TravelRepo] Parsed Response:', name: 'G2Rail');
-    developer.log('  Full JSON: $solutionsJson', name: 'G2Rail');
-
     if (solutionsJson is Map) {
-      developer.log('  Keys in response: ${solutionsJson.keys.toList()}', name: 'G2Rail');
-
       if (solutionsJson.containsKey('async')) {
-        final solutions = solutionsJson['async'];
-        developer.log('  async found: ${solutions is List ? solutions.length : 'Not a list'}', name: 'G2Rail');
-        if (solutions is List && solutions.isNotEmpty) {
-          developer.log('  First solution: ${solutions.first}', name: 'G2Rail');
-        }
       } else {
         developer.log('  WARNING: No "async" key found in response', name: 'G2Rail');
       }
@@ -170,16 +166,9 @@ class TravelRepo {
 
   Future<dynamic> getAsyncResult(String asyncKey) async {
     final asyncResultURl = '$baseUrl/api/v2/async_results/$asyncKey';
-
-    // Debug logging for async request
-    developer.log('[TravelRepo] Getting Async Result:', name: 'G2Rail');
-    developer.log('  URL: $asyncResultURl', name: 'G2Rail');
-    developer.log('  Async Key: $asyncKey', name: 'G2Rail');
-
-    final headers = getAuthorizationHeaders({"async_key": asyncKey});
     final asyncResult = await httpClient.get(
       Uri.parse(asyncResultURl),
-      headers: headers,
+      headers: getAuthorizationHeaders({"async_key": asyncKey}),
     );
 
     // Debug logging for async response
@@ -193,10 +182,16 @@ class TravelRepo {
       throw Exception('error getting async result - Status: ${asyncResult.statusCode}, Body: ${utf8.decode(asyncResult.bodyBytes)}');
     }
 
-    final decodedResponse = jsonDecode(utf8.decode(asyncResult.bodyBytes));
-    developer.log('  Decoded Response: $decodedResponse', name: 'G2Rail');
-
-    return decodedResponse;
+    try {
+      final asyncJson = jsonDecode(utf8.decode(asyncResult.bodyBytes));
+      if (asyncJson is Map && asyncJson.containsKey('error')) {
+        developer.log('[TravelRepo] ERROR: Async result contains error: ${asyncJson['error']}', name: 'G2Rail');
+        throw Exception('Async result error: ${asyncJson['error']}');
+      }
+    } catch (e) {
+      developer.log('[TravelRepo] ERROR: Failed to parse async result JSON: $e', name: 'G2Rail');
+      throw Exception('Failed to parse async result JSON: $e');
+    }
   }
 
   /// Complete async search workflow: call online_solutions, get async key, poll for results
@@ -226,7 +221,7 @@ class TravelRepo {
       asyncKey = solutionsResponse['async_key']?.toString();
 
       // Check if we got solutions immediately (synchronous response)
-      if (solutionsResponse.containsKey('solutions') &&
+      if (solutionsResponse.containsKey('async_key') &&
           solutionsResponse['solutions'] is List &&
           (solutionsResponse['solutions'] as List).isNotEmpty) {
         developer.log('[TravelRepo] Got synchronous solutions, returning immediately', name: 'G2Rail');
