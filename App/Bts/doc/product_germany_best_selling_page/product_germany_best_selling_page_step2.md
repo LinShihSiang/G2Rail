@@ -10,10 +10,10 @@ This document outlines the implementation plan for the Product Page in the G2Rai
 - Information should be derived from the selected package in `germany_products_page`
 
 ### 2. Station Selection
-- **Departure Station**: User-searchable text field with autocomplete functionality populated from `en_name` field in `data/80_Germany.xls`
+- **Departure Station**: User-searchable text field with autocomplete functionality populated from `en_name` field in `data/80_Germany.json`
 - **Arrival Station**: Automatically calculated as the nearest German train station based on tour package's latitude/longitude coordinates
 - **Station Selection Logic**:
-  - Load all German stations from `80_Germany.xls` with their `en_name`, coordinates, and other metadata
+  - Load all German stations from `80_Germany.json` with their `en_name`, coordinates, and other metadata
   - Extract latitude/longitude from the selected tour package
   - Calculate distance to all German stations using haversine formula
   - Select the station with minimum distance as arrival station (also display using `en_name`)
@@ -77,7 +77,7 @@ Each result card must include:
 - Consider async/await patterns for user experience
 
 ### Station Data Management
-- Load German station data from `80_Germany.xls` including `en_name`, latitude, longitude, and station codes
+- Load German station data from `80_Germany.json` including `en_name`, latitude, longitude, and station codes
 - Create station model class with fields: `en_name`, `latitude`, `longitude`, `station_code`, etc.
 - Cache station data for performance optimization
 - Use `en_name` field for all user-facing station displays in search results and station displays

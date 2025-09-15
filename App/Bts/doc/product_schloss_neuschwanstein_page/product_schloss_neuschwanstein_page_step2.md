@@ -22,7 +22,77 @@ The current "Proceed to Payment" button calls `submitAndGoNext()` which:
 
 ## Implementation Requirements
 
-### 1. Payment Processing Integration
+### 1. Page Header Card Design
+
+**Target**: Create an attractive header card displaying package information with quantity adjustment functionality.
+
+**Card Components**:
+- **Package Image**: Display product image prominently
+- **Package Title**: Product name (e.g., "Schloss Neuschwanstein")
+- **Package Description**: Brief description of the tour/package
+- **Location**: Display destination location
+- **Unit Price**: Show price per person with currency
+- **Quantity Selector**:
+  - Plus/minus buttons for quantity adjustment
+  - Display current quantity
+  - Minimum quantity: 1
+- **Total Price Calculation**:
+  - Real-time calculation: `price × quantity`
+  - Display total amount prominently
+  - Update automatically when quantity changes
+
+**UI Design Requirements**:
+```dart
+Card(
+  elevation: 4,
+  margin: EdgeInsets.all(16),
+  child: Padding(
+    padding: EdgeInsets.all(16),
+    child: Column(
+      children: [
+        // Package Image
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset('assets/images/schloss_neuschwanstein.jpg'),
+        ),
+        SizedBox(height: 16),
+
+        // Package Info
+        Text(product.name, style: Theme.of(context).textTheme.headlineSmall),
+        Text(product.description, style: Theme.of(context).textTheme.bodyMedium),
+        Text('Location: ${product.location}', style: Theme.of(context).textTheme.bodySmall),
+
+        // Price and Quantity
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('${product.price} ${product.currency}/person'),
+            QuantitySelector(
+              quantity: viewModel.quantity,
+              onChanged: viewModel.updateQuantity,
+            ),
+          ],
+        ),
+
+        // Total Price
+        Container(
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Total: ${viewModel.totalAmount} ${product.currency}',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+      ],
+    ),
+  ),
+)
+```
+
+### 2. Payment Processing Integration
 
 **Target**: Modify the payment button functionality to process payment directly instead of navigation.
 
@@ -159,7 +229,7 @@ Utilize existing `EmailService` with required parameters:
 - **Processing**: "Processing Payment..."
 - **Email Sending**: "Sending Confirmation..."
 
-### 5. Station Display and API Integration Requirements
+### 5. Station Selection Enhancement
 
 #### 5.1 Station Display Format
 **Departure Station Options**:
@@ -167,12 +237,112 @@ Utilize existing `EmailService` with required parameters:
 - **No Station Code**: Do not display `station_code` in dropdown/search results
 - **Clean Interface**: Users see friendly names like "Berlin Central Station" without codes
 
-#### 5.2 API Call Requirements
-**G2Rail API Integration**:
-- **From Parameter**: Use `station_code` of selected departure station
-- **To Parameter**: Use `station_code` of calculated arrival station
-- **Internal Mapping**: Map user-selected station names to corresponding station codes
-- **Example**: User sees "Munich Central Station" but API receives station code like "MUC_CENTRAL"
+#### 5.2 Passenger Count Integration
+**Station Selection with Passenger Information**:
+- **Number of Adults**: Input field for adult passenger count
+  - Minimum: 1 adult required
+  - Maximum: 10 adults (configurable)
+  - Default: 1 adult
+- **Number of Children**: Input field for child passenger count
+  - Minimum: 0 children
+  - Maximum: 8 children (configurable)
+  - Default: 0 children
+  - Age indication: "Under 18 years old"
+- **Total Passenger Display**: Show total count (adults + children)
+- **Price Impact**: Update total price calculation based on passenger counts
+
+**UI Implementation**:
+```dart
+Row(
+  children: [
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Adults', style: Theme.of(context).textTheme.labelMedium),
+          NumberInputField(
+            value: viewModel.adultCount,
+            min: 1,
+            max: 10,
+            onChanged: viewModel.updateAdultCount,
+          ),
+        ],
+      ),
+    ),
+    SizedBox(width: 16),
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Children (Under 18)', style: Theme.of(context).textTheme.labelMedium),
+          NumberInputField(
+            value: viewModel.childCount,
+            min: 0,
+            max: 8,
+            onChanged: viewModel.updateChildCount,
+          ),
+        ],
+      ),
+    ),
+  ],
+)
+```
+
+#### 5.3 G2Rail API Solution Call Requirements
+**G2Rail API Integration using data/80_Germany.json**:
+
+**Station Data Structure (from 80_Germany.json)**:
+```json
+{
+  "station_code": "ST_E0209NPZ",
+  "name": "Nürnberg Hbf",
+  "en_name": "Nuremberg Central",
+  "cn_name": "紐倫堡中央火車站"
+}
+```
+
+**API Parameter Mapping**:
+- **From Parameter**: Use `station_code` field from selected departure station
+  - Example: "ST_E020P6M4", "ST_LYKXO1K1", "ST_E0209NPZ"
+- **To Parameter**: Use `station_code` field of calculated arrival station
+- **User Display**: Show `en_name` (English name) in UI dropdowns
+  - Example: Users see "Berlin Central" but API gets "ST_E020P6M4"
+- **Internal Mapping**: Map `en_name` → `station_code` for API calls
+- **Passenger Counts**: Include adult and child counts in API requests
+
+**Implementation Details**:
+```dart
+// Station selection mapping
+class StationMapping {
+  static String getApiStationCode(String selectedEnglishName) {
+    // Find station by en_name and return station_code field
+    final station = germanStations.firstWhere(
+      (station) => station.enName == selectedEnglishName
+    );
+    return station.stationCode; // Station code for API
+  }
+}
+
+// API call example - matches travel_repo.dart getSolutions method
+await travelRepo.getSolutions(
+  StationMapping.getApiStationCode(selectedDepartureStation), // "ST_E020P6M4"
+  StationMapping.getApiStationCode(calculatedArrivalStation),  // "ST_LYKXO1K1"
+  selectedDate,     // "2025-09-16"
+  selectedTime,     // "09:00"
+  viewModel.adultCount,   // 1
+  viewModel.childCount,   // 0
+  0, // junior
+  0, // senior
+  0, // infant
+);
+```
+
+**Station Selection UI Flow**:
+1. Load stations from `data/80_Germany.json`
+2. Display `en_name` in dropdown (e.g., "Berlin Central", "Frankfurt Central")
+3. User selects English station name
+4. Map to `station_code` field for G2Rail API calls
+5. Store both values for order confirmation display
 
 ### 6. Data Model Updates
 
@@ -222,8 +392,8 @@ dependencies:
 3. **Error Handling**: Graceful handling of payment and email failures
 4. **User Experience**: Smooth transition from order entry to payment completion
 5. **Data Integrity**: Accurate order information in both payment and email systems
-6. **Station Display**: Clean UI showing only station names (`en_name`) without codes
-7. **API Compliance**: Proper use of `station_code` for G2Rail API calls (from/to parameters)
+6. **Station Display**: Clean UI showing only English station names (`en_name`) without codes
+7. **API Compliance**: Proper use of station codes (`station_code` field) for G2Rail API calls (from/to parameters)
 
 ## Implementation Priority
 
