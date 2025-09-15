@@ -14,7 +14,7 @@ class EmailRepo {
   }) async {
 
     try {
-      final title = 'DoDoMan天鵝堡門票訂單 - {$customerName}($toEmail)';
+      final title = 'DoDoMan order - {$customerName}($toEmail)';
 
       final response = await http.post(
         Uri.parse(
