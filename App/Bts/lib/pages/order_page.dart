@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../view_models/order_step1_view_model.dart';
@@ -7,6 +8,7 @@ import '../repos/order_draft_repo.dart';
 import '../models/order_step1_state.dart';
 import '../services/payment_service.dart';
 import '../services/email_service.dart';
+import '../services/order_api_service.dart';
 import '../models/order_draft.dart';
 
 class OrderPage extends StatelessWidget {
@@ -555,6 +557,29 @@ class _OrderPageContentState extends State<_OrderPageContent> {
         }
       }
 
+      // Step 3: Submit order to API
+      try {
+        final orderApiService = OrderApiService();
+        
+        final orderDetailsText = _createOrderDetailsText(orderDraft);
+        
+        final apiSuccess = await orderApiService.submitOrder(
+          orderId: orderId,
+          orderDate: DateTime.now(),
+          customerName: orderDraft.mainFullNameEn,
+          orderDetails: orderDetailsText,
+          orderAmount: viewModel.totalAmount.toDouble(),
+          paymentMethod: 'Credit Card',
+          paymentStatus: 'completed', // Payment was successful
+        );
+        
+        if (!apiSuccess) {
+          debugPrint('Failed to submit order to API, but continuing with local storage');
+        }
+      } catch (e) {
+        debugPrint('Error submitting order to API: $e, continuing with local storage');
+      }
+
       // Save order draft with order ID
       final orderDraftRepo = InMemoryOrderDraftRepo();
       await orderDraftRepo.save(orderDraft);
@@ -609,6 +634,22 @@ class _OrderPageContentState extends State<_OrderPageContent> {
       'method': 'Credit Card',
       'transactionId': 'TXN_${DateTime.now().millisecondsSinceEpoch}',
     };
+  }
+
+  String _createOrderDetailsText(OrderDraft orderDraft) {
+    final companionsText = orderDraft.companions.isNotEmpty
+        ? '\nCompanions: ${orderDraft.companions.map((c) => '${c.fullNameEn} (${c.isChild ? 'Child' : 'Adult'})').join(', ')}'
+        : '';
+    
+    return '''
+Product: ${orderDraft.productName}
+Travel Date: ${DateFormat('EEEE, MMMM d, y').format(orderDraft.dateTime)}
+Adults: ${orderDraft.adultCount}
+Children: ${orderDraft.childCount}
+Main Passenger: ${orderDraft.mainFullNameEn}
+Email: ${orderDraft.email}$companionsText
+Total Amount: ${orderDraft.totalAmount} ${orderDraft.currency}
+'''.trim();
   }
 
   void _showErrorDialog(BuildContext context, String title, String message) {

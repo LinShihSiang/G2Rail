@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:g2railsample/services/payment_service.dart';
 import 'package:g2railsample/services/email_service.dart';
+import 'package:g2railsample/services/order_api_service.dart';
 import 'package:g2railsample/pages/confirmation_page.dart';
 import 'package:intl/intl.dart';
 
@@ -306,6 +308,9 @@ class _PaymentPageState extends State<PaymentPage> {
       );
 
       if (success) {
+        // Submit order to API
+        await _submitOrderToApi();
+        
         // Send confirmation email
         await _sendConfirmationEmail();
 
@@ -361,6 +366,45 @@ class _PaymentPageState extends State<PaymentPage> {
       );
     } catch (e) {
       debugPrint('Failed to send confirmation email: $e');
+    }
+  }
+
+  Future<void> _submitOrderToApi() async {
+    try {
+      final product = widget.orderDetails['product'] as Map<String, dynamic>;
+      final quantity = widget.orderDetails['quantity'] as int;
+      final totalPrice = widget.orderDetails['totalPrice'] as double;
+      final travelDate = widget.orderDetails['travelDate'] as DateTime;
+      final passengerInfo = widget.orderDetails['passengerInfo'] as Map<String, dynamic>;
+      
+      final orderId = 'ORDER_${DateTime.now().millisecondsSinceEpoch}';
+      
+      final orderDetailsText = '''
+Product: ${product['title']}
+Travel Date: ${DateFormat('EEEE, MMMM d, y').format(travelDate)}
+Passengers: $quantity
+Customer: ${passengerInfo['name']}
+Email: ${passengerInfo['email']}
+Total Amount: \$${totalPrice.toStringAsFixed(2)}
+'''.trim();
+
+      final orderApiService = OrderApiService();
+      
+      final apiSuccess = await orderApiService.submitOrder(
+        orderId: orderId,
+        orderDate: DateTime.now(),
+        customerName: passengerInfo['name'],
+        orderDetails: orderDetailsText,
+        orderAmount: totalPrice,
+        paymentMethod: 'Credit Card',
+        paymentStatus: 'completed',
+      );
+      
+      if (!apiSuccess) {
+        debugPrint('Failed to submit order to API in payment page');
+      }
+    } catch (e) {
+      debugPrint('Error submitting order to API in payment page: $e');
     }
   }
 
