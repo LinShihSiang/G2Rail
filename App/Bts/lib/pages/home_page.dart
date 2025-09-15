@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../repos/product_repo.dart';
 import '../services/price_formatter.dart';
 import '../repos/models/product.dart';
+import '../repos/models/product_group.dart';
 import '../repos/germany_tours_repo.dart';
 import 'product_schloss_neuschwanstein_page.dart';
 import 'germany_products_page.dart';
@@ -15,19 +16,29 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Product>> _future;
+  late Future<List<ProductGroup>> _future;
+  final Map<String, bool> _expandedGroups = {
+    'group_tickets': true,
+    'group_international_packages': true,
+  };
 
   @override
   void initState() {
     super.initState();
-    _future = widget.repo.getAll();
+    _future = widget.repo.getGroupedProducts();
+  }
+
+  void _toggleGroup(String groupId) {
+    setState(() {
+      _expandedGroups[groupId] = !(_expandedGroups[groupId] ?? false);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Country')),
-      body: FutureBuilder<List<Product>>(
+      appBar: AppBar(title: const Text('DoDoMan Travel')),
+      body: FutureBuilder<List<ProductGroup>>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
@@ -36,17 +47,83 @@ class _HomePageState extends State<HomePage> {
           if (snap.hasError) {
             return Center(child: Text('Failed to load products: ${snap.error}'));
           }
-          final items = snap.data ?? const [];
-          if (items.isEmpty) {
+          final groups = snap.data ?? const [];
+          if (groups.isEmpty) {
             return const Center(child: Text('No products available'));
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => ProductCard(product: items[i]),
+            itemCount: groups.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, i) => ProductGroupWidget(
+              group: groups[i],
+              isExpanded: _expandedGroups[groups[i].id] ?? true,
+              onToggle: () => _toggleGroup(groups[i].id),
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class ProductGroupWidget extends StatelessWidget {
+  final ProductGroup group;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  const ProductGroupWidget({
+    super.key,
+    required this.group,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      group.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: group.products
+                    .map((product) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ProductCard(product: product),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

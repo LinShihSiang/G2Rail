@@ -1,7 +1,9 @@
 import 'models/product.dart';
+import 'models/product_group.dart';
 
 abstract class ProductRepo {
   Future<List<Product>> getAll();
+  Future<List<ProductGroup>> getGroupedProducts();
 }
 
 class InMemoryProductRepo implements ProductRepo {
@@ -11,17 +13,58 @@ class InMemoryProductRepo implements ProductRepo {
       Product(
         id: 'prod_schloss_neuschwanstein',
         name: 'Schloss Neuschwanstein',
-        imageUrl: 'assets/images/schloss_neuschwanstein.jpg', // placeholder
+        imageUrl: 'assets/images/schloss_neuschwanstein.jpg',
         propaganda: '5% discount, free admission for companions under 18.',
         price: 21,
         currency: 'EUR',
+        category: 'tickets',
       ),
       Product(
         id: 'prod_germany_products',
         name: 'Germany Popular Packages',
-        imageUrl: 'assets/images/germany_products.jpg', // placeholder
+        imageUrl: 'assets/images/germany_products.jpg',
         propaganda: 'Explore authentic German travel experiences',
         currency: 'EUR',
+        category: 'packages',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ProductGroup>> getGroupedProducts() async {
+    return const [
+      ProductGroup(
+        id: 'group_tickets',
+        name: 'Tickets',
+        category: 'tickets',
+        isExpanded: true,
+        products: [
+          Product(
+            id: 'prod_schloss_neuschwanstein',
+            name: 'Schloss Neuschwanstein',
+            imageUrl: 'assets/images/schloss_neuschwanstein.jpg',
+            propaganda: '5% discount, free admission for companions under 18.',
+            price: 21,
+            currency: 'EUR',
+            category: 'tickets',
+          ),
+        ],
+      ),
+      ProductGroup(
+        id: 'group_international_packages',
+        name: 'International Packages',
+        category: 'packages',
+        isExpanded: true,
+        products: [
+          Product(
+            id: 'prod_germany_products',
+            name: 'Germany Popular Packages',
+            imageUrl: 'assets/images/germany_products.jpg',
+            propaganda: 'Explore authentic German travel experiences',
+            currency: 'EUR',
+            category: 'packages',
+          ),
+        ],
       ),
     ];
   }
