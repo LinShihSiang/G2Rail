@@ -6,6 +6,7 @@ import '../repos/models/product_group.dart';
 import '../repos/germany_tours_repo.dart';
 import 'product_schloss_neuschwanstein_page.dart';
 import 'germany_products_page.dart';
+import 'product_page.dart';
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;

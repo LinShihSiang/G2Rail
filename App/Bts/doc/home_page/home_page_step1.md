@@ -86,6 +86,15 @@ class InMemoryProductRepo implements ProductRepo {
             currency: 'EUR',
             category: 'tickets',
           ),
+          Product(
+            id: 'prod_uffizi_gallery',
+            name: 'Uffizi Gallery Art',
+            imageUrl: 'assets/images/uffizi_gallery_art.jpg',
+            propaganda: '5% discount, free admission for companions under 18.',
+            price: 35.9,
+            currency: 'EUR',
+            category: 'tickets',
+          ),
         ],
       ),
       ProductGroup(
@@ -109,11 +118,12 @@ class InMemoryProductRepo implements ProductRepo {
 }
 ```
 
-> **Image note:** Use placeholder asset paths for now (`assets/images/schloss_neuschwanstein.jpg` and `assets/images/germany_products.jpg`). You can later replace them with generated or licensed photos. Add to `pubspec.yaml`:
+> **Image note:** Use placeholder asset paths for now (`assets/images/schloss_neuschwanstein.jpg`, `assets/images/uffizi_gallery_art.jpg`, and `assets/images/germany_products.jpg`). You can later replace them with generated or licensed photos. Add to `pubspec.yaml`:
 ```yaml
 flutter:
   assets:
     - assets/images/schloss_neuschwanstein.jpg
+    - assets/images/uffizi_gallery_art.jpg
     - assets/images/germany_products.jpg
 ```
 
@@ -399,7 +409,7 @@ class MyApp extends StatelessWidget {
 - [ ] Tapping group header toggles expansion state (chevron animates up/down).
 - [ ] When expanded, products within that group are visible.
 - [ ] When collapsed, products are hidden.
-- [ ] Schloss Neuschwanstein appears under "Tickets" group.
+- [ ] Schloss Neuschwanstein and Uffizi Gallery Art appear under "Tickets" group.
 - [ ] Germany Popular Packages appears under "International Packages" group.
 - [ ] Each product displays image, **name**, **propaganda**, and **price with currency**.
 - [ ] Price for `EUR` renders as `€21` for the sample product.
@@ -444,8 +454,16 @@ lib/
   - **Price:** `21`
   - **Currency:** `EUR`
 
+- **Product 2:** Uffizi Gallery Art
+  - **Category:** `tickets`
+  - **Image:** `assets/images/uffizi_gallery_art.jpg` (應顯示烏菲茲美術館外觀建築)
+  - **Propaganda:** `5% discount, free admission for companions under 18.`
+  - **Price:** `35.9`
+  - **Currency:** `EUR`
+  - **描述:** 位於佛羅倫斯的著名烏菲茲美術館，收藏文藝復興時期藝術珍品
+
 ### Group 2: International Packages
-- **Product 2:** Germany Popular Packages
+- **Product 3:** Germany Popular Packages
   - **Category:** `packages`
   - **Image:** `assets/images/germany_products.jpg` (placeholder; replace later)
   - **Propaganda:** `Explore authentic German travel experiences`
