@@ -1,13 +1,17 @@
 # Home Page — Step 1: Implementation Document
 
 ## Goal
-List all travel products on the Home page using a scrollable list. Each item shows:
+Display DoDoMan Travel products on the Home page using a grouped, expandable/collapsible structure. Each product item shows:
 - One promo image
 - Product tagline (propaganda)
 - Price
 - Currency
 
-Initial catalog contains **Schloss Neuschwanstein** and **Germany Products Page**.
+Products are organized into two main groups:
+1. **Tickets** - Contains individual attraction tickets (e.g., Schloss Neuschwanstein)
+2. **International Packages** - Contains travel package collections (e.g., Germany Popular Packages)
+
+Each group can be expanded or collapsed to show/hide its contents.
 
 ---
 
@@ -22,6 +26,7 @@ class Product {
   final String propaganda; // marketing tagline
   final num price;         // numeric price, ex: 21
   final String currency;   // ISO 4217, e.g., "EUR"
+  final String category;   // Product category: "tickets" or "packages"
 
   const Product({
     required this.id,
@@ -30,6 +35,24 @@ class Product {
     required this.propaganda,
     required this.price,
     required this.currency,
+    required this.category,
+  });
+}
+
+// lib/repos/models/product_group.dart
+class ProductGroup {
+  final String id;
+  final String name;
+  final String category;   // "tickets" or "packages"
+  final List<Product> products;
+  final bool isExpanded;
+
+  const ProductGroup({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.products,
+    this.isExpanded = true,
   });
 }
 ```
@@ -38,29 +61,48 @@ class Product {
 ```dart
 // lib/repos/product_repo.dart
 import 'models/product.dart';
+import 'models/product_group.dart';
 
 abstract class ProductRepo {
-  Future<List<Product>> getAll();
+  Future<List<ProductGroup>> getGroupedProducts();
 }
 
 class InMemoryProductRepo implements ProductRepo {
   @override
-  Future<List<Product>> getAll() async {
+  Future<List<ProductGroup>> getGroupedProducts() async {
     return const [
-      Product(
-        id: 'prod_schloss_neuschwanstein',
-        name: 'Schloss Neuschwanstein',
-        imageUrl: 'assets/images/schloss_neuschwanstein.jpg', // placeholder
-        propaganda: '9折優惠，18歲以下免費同行',
-        price: 21,
-        currency: 'EUR',
+      ProductGroup(
+        id: 'group_tickets',
+        name: 'Tickets',
+        category: 'tickets',
+        isExpanded: true,
+        products: [
+          Product(
+            id: 'prod_schloss_neuschwanstein',
+            name: 'Schloss Neuschwanstein',
+            imageUrl: 'assets/images/schloss_neuschwanstein.jpg',
+            propaganda: '5% discount, free admission for companions under 18.',
+            price: 21,
+            currency: 'EUR',
+            category: 'tickets',
+          ),
+        ],
       ),
-      Product(
-        id: 'prod_germany_products',
-        name: 'Germany Products Page',
-        imageUrl: 'assets/images/germany_products.jpg', // placeholder
-        propaganda: 'Explore authentic German travel experiences',
-        currency: 'EUR',
+      ProductGroup(
+        id: 'group_international_packages',
+        name: 'International Packages',
+        category: 'packages',
+        isExpanded: true,
+        products: [
+          Product(
+            id: 'prod_germany_products',
+            name: 'Germany Popular Packages',
+            imageUrl: 'assets/images/germany_products.jpg',
+            propaganda: 'Explore authentic German travel experiences',
+            currency: 'EUR',
+            category: 'packages',
+          ),
+        ],
       ),
     ];
   }
@@ -102,8 +144,13 @@ dependencies:
 ## UI/UX
 
 ### Layout
-- **HomePage** shows a `ListView.builder`.
-- Each row is a **ProductCard**:
+- **DoDoMan Travel HomePage** shows grouped, expandable/collapsible sections.
+- Two main groups: **Tickets** and **International Packages**
+- Each group has a header with:
+  - Group name (bold, larger text)
+  - Expand/collapse icon (chevron up/down)
+  - Tap to toggle expansion state
+- When expanded, shows **ProductCard** list for that group:
   - Top: image (16:9, `ClipRRect` with rounded corners)
   - Below: name (bold), propaganda (secondary text, max 2 lines, ellipsis)
   - Right or bottom-right: formatted price
@@ -115,6 +162,7 @@ import 'package:flutter/material.dart';
 import '../../repos/product_repo.dart';
 import '../../services/price_formatter.dart';
 import '../../repos/models/product.dart';
+import '../../repos/models/product_group.dart';
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;
@@ -125,19 +173,29 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<List<Product>> _future;
+  late Future<List<ProductGroup>> _future;
+  final Map<String, bool> _expandedGroups = {
+    'group_tickets': true,
+    'group_international_packages': true,
+  };
 
   @override
   void initState() {
     super.initState();
-    _future = widget.repo.getAll();
+    _future = widget.repo.getGroupedProducts();
+  }
+
+  void _toggleGroup(String groupId) {
+    setState(() {
+      _expandedGroups[groupId] = !(_expandedGroups[groupId] ?? false);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
-      body: FutureBuilder<List<Product>>(
+      appBar: AppBar(title: const Text('DoDoMan Travel')),
+      body: FutureBuilder<List<ProductGroup>>(
         future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
@@ -146,17 +204,83 @@ class _HomePageState extends State<HomePage> {
           if (snap.hasError) {
             return Center(child: Text('Failed to load products: ${snap.error}'));
           }
-          final items = snap.data ?? const [];
-          if (items.isEmpty) {
+          final groups = snap.data ?? const [];
+          if (groups.isEmpty) {
             return const Center(child: Text('No products available'));
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => ProductCard(product: items[i]),
+            itemCount: groups.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, i) => ProductGroupWidget(
+              group: groups[i],
+              isExpanded: _expandedGroups[groups[i].id] ?? true,
+              onToggle: () => _toggleGroup(groups[i].id),
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class ProductGroupWidget extends StatelessWidget {
+  final ProductGroup group;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  const ProductGroupWidget({
+    super.key,
+    required this.group,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      group.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: group.products
+                    .map((product) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ProductCard(product: product),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -214,18 +338,20 @@ class ProductCard extends StatelessWidget {
                       color: Theme.of(context).textTheme.bodySmall?.color,
                     ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  const Icon(Icons.attach_money, size: 18),
-                  Text(
-                    priceText,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
+              if (priceText.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.attach_money, size: 18),
+                    Text(
+                      priceText,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -256,7 +382,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Travel Agency',
+      title: 'DoDoMan Travel',
       home: HomePage(repo: repo),
       // routes for detail to be added in Step 2
     );
@@ -267,13 +393,20 @@ class MyApp extends StatelessWidget {
 ---
 
 ## Acceptance Criteria (QA Checklist)
-- [ ] Home page loads without crash and shows a spinner while loading.
-- [ ] When the repo returns products, a list appears; empty repo → “No products available”.
-- [ ] Each item displays image, **name**, **propaganda**, and **price with currency**.
+- [ ] DoDoMan Travel home page loads without crash and shows a spinner while loading.
+- [ ] Two main groups are displayed: "Tickets" and "International Packages".
+- [ ] Each group header shows group name and expand/collapse chevron icon.
+- [ ] Tapping group header toggles expansion state (chevron animates up/down).
+- [ ] When expanded, products within that group are visible.
+- [ ] When collapsed, products are hidden.
+- [ ] Schloss Neuschwanstein appears under "Tickets" group.
+- [ ] Germany Popular Packages appears under "International Packages" group.
+- [ ] Each product displays image, **name**, **propaganda**, and **price with currency**.
 - [ ] Price for `EUR` renders as `€21` for the sample product.
 - [ ] Images have rounded corners and maintain 16:9 aspect ratio.
-- [ ] Tap on a card prepares navigation (stub OK for Step 1).
+- [ ] Tap on a product card prepares navigation (stub OK for Step 1).
 - [ ] No visual overflow on narrow phones; text truncates gracefully.
+- [ ] Group expansion state persists during the session.
 
 ---
 
@@ -293,6 +426,7 @@ lib/
   repos/
     models/
       product.dart
+      product_group.dart
     product_repo.dart
   services/
     price_formatter.dart
@@ -300,15 +434,20 @@ lib/
 
 ---
 
-## Product Detail Setting (Source of Truth for Step 1)
+## Product Groups and Detail Setting (Source of Truth for Step 1)
+
+### Group 1: Tickets
 - **Product 1:** Schloss Neuschwanstein
+  - **Category:** `tickets`
   - **Image:** `assets/images/schloss_neuschwanstein.jpg` (placeholder; replace later)
-  - **Propaganda:** `95折優惠，18歲以下免費同行`
+  - **Propaganda:** `5% discount, free admission for companions under 18.`
   - **Price:** `21`
   - **Currency:** `EUR`
 
-- **Product 2:** Germany Products Page
+### Group 2: International Packages
+- **Product 2:** Germany Popular Packages
+  - **Category:** `packages`
   - **Image:** `assets/images/germany_products.jpg` (placeholder; replace later)
   - **Propaganda:** `Explore authentic German travel experiences`
-  - **Price:** `35`
+  - **Price:** No specific price (will show as package collection)
   - **Currency:** `EUR`
