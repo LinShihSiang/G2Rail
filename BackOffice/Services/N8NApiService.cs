@@ -7,6 +7,7 @@ namespace DoDoManBackOffice.Services
     {
         Task<List<N8NOrderResponseDto>> GetOrdersAsync();
         Task<List<N8NOrderResponseDto>> GetOrdersAsync(DateTime? startDate, DateTime? endDate, string? orderNumber, string? customerName, string? paymentMethod, string? paymentStatus);
+        Task<List<N8NSubscriberResponseDto>> GetSubscribersAsync();
     }
 
     public class N8NApiService : IN8NApiService
@@ -93,6 +94,62 @@ namespace DoDoManBackOffice.Services
             }
 
             return filteredOrders.ToList();
+        }
+
+        public async Task<List<N8NSubscriberResponseDto>> GetSubscribersAsync()
+        {
+            try
+            {
+                var apiUrl = _configuration["N8NSettings:SubscribersApiUrl"];
+
+                _logger.LogInformation("Fetching subscribers from N8N API: {ApiUrl}", apiUrl);
+
+                var response = await _httpClient.GetAsync(apiUrl);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("N8N API returned non-success status code: {StatusCode}", response.StatusCode);
+                    return new List<N8NSubscriberResponseDto>();
+                }
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                if (string.IsNullOrWhiteSpace(jsonContent))
+                {
+                    _logger.LogWarning("N8N API returned empty response");
+                    return new List<N8NSubscriberResponseDto>();
+                }
+
+                // Check if the response looks like HTML instead of JSON
+                if (jsonContent.TrimStart().StartsWith("<"))
+                {
+                    _logger.LogWarning("N8N API returned HTML content instead of JSON. Response preview: {ResponsePreview}",
+                        jsonContent.Length > 200 ? jsonContent[..200] + "..." : jsonContent);
+                    return new List<N8NSubscriberResponseDto>();
+                }
+
+                var subscribers = JsonSerializer.Deserialize<List<N8NSubscriberResponseDto>>(jsonContent, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return subscribers ?? new List<N8NSubscriberResponseDto>();
+            }
+            catch (HttpRequestException httpEx)
+            {
+                _logger.LogError(httpEx, "Network error when fetching subscribers from N8N API");
+                return new List<N8NSubscriberResponseDto>();
+            }
+            catch (JsonException jsonEx)
+            {
+                _logger.LogError(jsonEx, "JSON parsing error when fetching subscribers from N8N API");
+                return new List<N8NSubscriberResponseDto>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error fetching subscribers from N8N API");
+                return new List<N8NSubscriberResponseDto>();
+            }
         }
     }
 }
