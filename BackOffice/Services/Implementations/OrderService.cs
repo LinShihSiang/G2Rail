@@ -350,7 +350,10 @@ namespace DoDoManBackOffice.Services.Implementations
                 });
             }
 
-            return filteredOrders.ToList();
+            // Sort by order date descending (latest first)
+            return filteredOrders
+                .OrderByDescending(o => DateTime.TryParse(o.OrderDate, out var orderDate) ? orderDate : DateTime.MinValue)
+                .ToList();
         }
 
         private string GetStatusDisplayName(PaymentStatus status)
