@@ -28,6 +28,13 @@ class _ProductPageState extends State<ProductPage> {
   String? _selectedDate;
   String? _selectedTime;
 
+  // Passenger counts
+  int _adultCount = 1;
+  int _childCount = 0;
+
+  // Package quantity
+  int _packageQuantity = 1;
+
   // Search state
   bool _isSearching = false;
   List<dynamic> _searchResults = [];
@@ -92,24 +99,32 @@ class _ProductPageState extends State<ProductPage> {
     });
 
     try {
-      final result = await _travelRepo.getSolutions(
-        _selectedDepartureStation!.stationCode,
-        _arrivalStation!.stationCode,
+      // Use the new async search workflow
+      final result = await _travelRepo.searchTrainsAsync(
+        _selectedDepartureStation!.name,
+        _arrivalStation!.name,
         _selectedDate!,
         _selectedTime!,
-        1, // adult
-        0, // child
+        _adultCount, // adult
+        _childCount, // child
         0, // junior
         0, // senior
         0, // infant
+        maxAttempts: 30, // Poll for up to 1 minute
+        pollInterval: const Duration(seconds: 2),
       );
 
       setState(() {
         _isSearching = false;
-        if (result['solutions'] != null) {
-          _searchResults = result['solutions'];
+        if (result is Map && result.containsKey('solutions')) {
+          final solutions = result['solutions'];
+          if (solutions is List && solutions.isNotEmpty) {
+            _searchResults = solutions;
+          } else {
+            _errorMessage = 'No train schedules found for the selected criteria';
+          }
         } else {
-          _errorMessage = 'No train schedules found for the selected criteria';
+          _errorMessage = 'Invalid response format from search API';
         }
       });
     } catch (e) {
@@ -148,6 +163,142 @@ class _ProductPageState extends State<ProductPage> {
     }
   }
 
+  Widget _buildQuantitySelector() {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: _packageQuantity > 1 ? () {
+            setState(() {
+              _packageQuantity--;
+            });
+          } : null,
+          icon: const Icon(Icons.remove_circle_outline),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            _packageQuantity.toString(),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () {
+            setState(() {
+              _packageQuantity++;
+            });
+          },
+          icon: const Icon(Icons.add_circle_outline),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPassengerCountSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Number of Passengers',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildPassengerCounter(
+                'Adults',
+                _adultCount,
+                (value) => setState(() => _adultCount = value),
+                min: 1,
+                max: 10,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildPassengerCounter(
+                'Children (Under 18)',
+                _childCount,
+                (value) => setState(() => _childCount = value),
+                min: 0,
+                max: 8,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Total Passengers: ${_adultCount + _childCount}',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPassengerCounter(
+    String label,
+    int value,
+    Function(int) onChanged,
+    {int min = 0, int max = 10}
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 4),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: value > min ? () => onChanged(value - 1) : null,
+                icon: const Icon(Icons.remove),
+                iconSize: 20,
+              ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    value.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: value < max ? () => onChanged(value + 1) : null,
+                icon: const Icon(Icons.add),
+                iconSize: 20,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -165,7 +316,6 @@ class _ProductPageState extends State<ProductPage> {
               children: [
                 // Package Header
                 _buildPackageHeader(),
-                const SizedBox(height: 24),
 
                 // Search Form
                 _buildSearchForm(),
@@ -192,25 +342,53 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Widget _buildPackageHeader() {
+    final totalPrice = widget.package.sellPrice * _packageQuantity;
+
     return Card(
+      elevation: 4,
+      margin: const EdgeInsets.all(16),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Package Image
+            if (widget.package.images.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  widget.package.images.first,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      width: double.infinity,
+                      color: Colors.grey[300],
+                      child: const Icon(
+                        Icons.image_not_supported,
+                        size: 64,
+                        color: Colors.grey,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // Package Info
             Text(
               widget.package.name,
-              style: const TextStyle(
-                fontSize: 24,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               widget.package.intro,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
               ),
             ),
             const SizedBox(height: 8),
@@ -219,19 +397,48 @@ class _ProductPageState extends State<ProductPage> {
                 const Icon(Icons.location_on, color: Colors.red, size: 18),
                 const SizedBox(width: 4),
                 Text(
-                  widget.package.location,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const Spacer(),
-                Text(
-                  '€${widget.package.sellPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
+                  'Location: ${widget.package.location}',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+
+            // Price and Quantity
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '€${widget.package.sellPrice.toStringAsFixed(2)}/person',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                _buildQuantitySelector(),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Total Price
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Total: €${totalPrice.toStringAsFixed(2)}',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -253,6 +460,10 @@ class _ProductPageState extends State<ProductPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Passenger Count Selection
+            _buildPassengerCountSection(),
             const SizedBox(height: 16),
 
             // Departure Station Search Field
@@ -428,15 +639,36 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Widget _buildLoadingIndicator() {
-    return const Card(
+    return Card(
       child: Padding(
-        padding: EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(32.0),
         child: Center(
           child: Column(
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Searching for available trains...'),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
+                'Searching for available trains...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This may take up to 60 seconds',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                backgroundColor: Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Theme.of(context).primaryColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -552,7 +784,7 @@ class _ProductPageState extends State<ProductPage> {
 
                 // Price
                 Text(
-                  '€${result['price']?.toString() ?? widget.package.sellPrice.toStringAsFixed(2)}',
+                  '€${result['price']?.toString() ?? (widget.package.sellPrice * _packageQuantity).toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
