@@ -13,6 +13,11 @@ Products are organized into two main groups:
 
 Each group can be expanded or collapsed to show/hide its contents.
 
+**New Features:**
+- **Subscription Button**: Located in the top-right corner of the app bar
+- **Subscription Dialog**: Popup dialog for user email and name input
+- **Subscription API**: Call subscription service after user confirms
+
 ---
 
 ## Data Model
@@ -54,6 +59,91 @@ class ProductGroup {
     required this.products,
     this.isExpanded = true,
   });
+}
+```
+
+### Subscription Data Models
+```dart
+// lib/repos/models/subscription_request.dart
+class SubscriptionRequest {
+  final String email;
+  final String name;
+
+  const SubscriptionRequest({
+    required this.email,
+    required this.name,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'name': name,
+    };
+  }
+}
+
+// lib/repos/models/subscription_response.dart
+class SubscriptionResponse {
+  final bool success;
+  final String message;
+
+  const SubscriptionResponse({
+    required this.success,
+    required this.message,
+  });
+
+  factory SubscriptionResponse.fromJson(Map<String, dynamic> json) {
+    return SubscriptionResponse(
+      success: json['success'] ?? false,
+      message: json['message'] ?? '',
+    );
+  }
+}
+```
+
+### Subscription Service
+```dart
+// lib/services/subscription_service.dart
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../repos/models/subscription_request.dart';
+import '../repos/models/subscription_response.dart';
+
+class SubscriptionService {
+  final String baseUrl;
+  final http.Client httpClient;
+
+  SubscriptionService({
+    required this.baseUrl,
+    required this.httpClient,
+  });
+
+  Future<SubscriptionResponse> subscribe(SubscriptionRequest request) async {
+    try {
+      final response = await httpClient.post(
+        Uri.parse('$baseUrl/api/subscribe'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(request.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        return SubscriptionResponse.fromJson(responseData);
+      } else {
+        return SubscriptionResponse(
+          success: false,
+          message: 'Subscription failed. Please try again later.',
+        );
+      }
+    } catch (e) {
+      return SubscriptionResponse(
+        success: false,
+        message: 'Network error. Please check your connection.',
+      );
+    }
+  }
 }
 ```
 
@@ -171,12 +261,20 @@ dependencies:
 import 'package:flutter/material.dart';
 import '../../repos/product_repo.dart';
 import '../../services/price_formatter.dart';
+import '../../services/subscription_service.dart';
 import '../../repos/models/product.dart';
 import '../../repos/models/product_group.dart';
+import '../../repos/models/subscription_request.dart';
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;
-  const HomePage({super.key, required this.repo});
+  final SubscriptionService subscriptionService;
+
+  const HomePage({
+    super.key,
+    required this.repo,
+    required this.subscriptionService,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -201,10 +299,28 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _showSubscriptionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => SubscriptionDialog(
+        subscriptionService: widget.subscriptionService,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('DoDoMan Travel')),
+      appBar: AppBar(
+        title: const Text('DoDoMan Travel'),
+        actions: [
+          IconButton(
+            onPressed: _showSubscriptionDialog,
+            icon: const Icon(Icons.notifications_none),
+            tooltip: 'Subscribe to notifications',
+          ),
+        ],
+      ),
       body: FutureBuilder<List<ProductGroup>>(
         future: _future,
         builder: (context, snap) {
@@ -369,6 +485,159 @@ class ProductCard extends StatelessWidget {
     );
   }
 }
+
+class SubscriptionDialog extends StatefulWidget {
+  final SubscriptionService subscriptionService;
+
+  const SubscriptionDialog({
+    super.key,
+    required this.subscriptionService,
+  });
+
+  @override
+  State<SubscriptionDialog> createState() => _SubscriptionDialogState();
+}
+
+class _SubscriptionDialogState extends State<SubscriptionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your email';
+    }
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your name';
+    }
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    return null;
+  }
+
+  Future<void> _submitSubscription() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final request = SubscriptionRequest(
+        email: _emailController.text.trim(),
+        name: _nameController.text.trim(),
+      );
+
+      final response = await widget.subscriptionService.subscribe(request);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: response.success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An error occurred: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Subscribe to Notifications'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Get notified about our latest travel deals and packages!',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                hintText: 'Enter your full name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              validator: _validateName,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                hintText: 'Enter your email address',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
+              ),
+              validator: _validateEmail,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submitSubscription(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _submitSubscription,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Subscribe'),
+        ),
+      ],
+    );
+  }
+}
 ```
 
 ---
@@ -377,23 +646,41 @@ class ProductCard extends StatelessWidget {
 - Define named routes for `/` (Home) and `/product/:id` (later).
 ```dart
 // lib/main.dart (snippet)
+import 'package:http/http.dart' as http;
 import 'repos/product_repo.dart';
+import 'services/subscription_service.dart';
 import 'pages/home/home_page.dart';
 
 void main() {
   final repo = InMemoryProductRepo();
-  runApp(MyApp(repo: repo));
+  final subscriptionService = SubscriptionService(
+    baseUrl: 'https://api.dodoman-travel.com', // Replace with actual API endpoint
+    httpClient: http.Client(),
+  );
+  runApp(MyApp(
+    repo: repo,
+    subscriptionService: subscriptionService,
+  ));
 }
 
 class MyApp extends StatelessWidget {
   final ProductRepo repo;
-  const MyApp({super.key, required this.repo});
+  final SubscriptionService subscriptionService;
+
+  const MyApp({
+    super.key,
+    required this.repo,
+    required this.subscriptionService,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DoDoMan Travel',
-      home: HomePage(repo: repo),
+      home: HomePage(
+        repo: repo,
+        subscriptionService: subscriptionService,
+      ),
       // routes for detail to be added in Step 2
     );
   }
@@ -418,6 +705,22 @@ class MyApp extends StatelessWidget {
 - [ ] No visual overflow on narrow phones; text truncates gracefully.
 - [ ] Group expansion state persists during the session.
 
+**Subscription Feature:**
+- [ ] Subscription button (notification icon) appears in the top-right corner of app bar.
+- [ ] Tapping subscription button opens subscription dialog popup.
+- [ ] Dialog displays title "Subscribe to Notifications" and descriptive text.
+- [ ] Dialog contains "Full Name" and "Email Address" input fields with validation.
+- [ ] Name field validates minimum 2 characters and required input.
+- [ ] Email field validates proper email format and required input.
+- [ ] Dialog has "Cancel" and "Subscribe" buttons.
+- [ ] Cancel button closes dialog without action.
+- [ ] Subscribe button is disabled while loading and shows progress indicator.
+- [ ] Form validation prevents submission with invalid data.
+- [ ] Successful subscription shows green snackbar with success message.
+- [ ] Failed subscription shows red snackbar with error message.
+- [ ] Dialog closes automatically after successful subscription.
+- [ ] Network errors are handled gracefully with user-friendly messages.
+
 ---
 
 ## Accessibility & i18n
@@ -437,9 +740,12 @@ lib/
     models/
       product.dart
       product_group.dart
+      subscription_request.dart
+      subscription_response.dart
     product_repo.dart
   services/
     price_formatter.dart
+    subscription_service.dart
 ```
 
 ---

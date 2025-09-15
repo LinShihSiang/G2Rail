@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import '../repos/product_repo.dart';
 import '../services/price_formatter.dart';
+import '../services/subscription_service.dart';
 import '../repos/models/product.dart';
 import '../repos/models/product_group.dart';
+import '../repos/models/subscription_request.dart';
 import '../repos/germany_tours_repo.dart';
-import 'product_schloss_neuschwanstein_page.dart';
+import 'product_schloss_neuschwanstein_page.dart' as schloss_page;
 import 'germany_products_page.dart';
-import 'product_page.dart';
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;
-  const HomePage({super.key, required this.repo});
+  final SubscriptionService subscriptionService;
+
+  const HomePage({
+    super.key,
+    required this.repo,
+    required this.subscriptionService,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -35,10 +42,28 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _showSubscriptionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => SubscriptionDialog(
+        subscriptionService: widget.subscriptionService,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('DoDoMan Travel')),
+      appBar: AppBar(
+        title: const Text('DoDoMan Travel'),
+        actions: [
+          IconButton(
+            onPressed: _showSubscriptionDialog,
+            icon: const Icon(Icons.notifications_none),
+            tooltip: 'Subscribe to notifications',
+          ),
+        ],
+      ),
       body: FutureBuilder<List<ProductGroup>>(
         future: _future,
         builder: (context, snap) {
@@ -155,7 +180,7 @@ class ProductCard extends StatelessWidget {
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => ProductPage(product: product),
+                builder: (context) => schloss_page.ProductPage(product: product),
               ),
             );
           }
@@ -213,6 +238,159 @@ class ProductCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class SubscriptionDialog extends StatefulWidget {
+  final SubscriptionService subscriptionService;
+
+  const SubscriptionDialog({
+    super.key,
+    required this.subscriptionService,
+  });
+
+  @override
+  State<SubscriptionDialog> createState() => _SubscriptionDialogState();
+}
+
+class _SubscriptionDialogState extends State<SubscriptionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _nameController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your email';
+    }
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (!emailRegex.hasMatch(value)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  String? _validateName(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your name';
+    }
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    return null;
+  }
+
+  Future<void> _submitSubscription() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final request = SubscriptionRequest(
+        email: _emailController.text.trim(),
+        name: _nameController.text.trim(),
+      );
+
+      final response = await widget.subscriptionService.subscribe(request);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response.message),
+            backgroundColor: response.success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An error occurred: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Subscribe to Notifications'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Get notified about our latest travel deals and packages!',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                hintText: 'Enter your full name',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
+              ),
+              validator: _validateName,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                hintText: 'Enter your email address',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
+              ),
+              validator: _validateEmail,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submitSubscription(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _submitSubscription,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Subscribe'),
+        ),
+      ],
     );
   }
 }
