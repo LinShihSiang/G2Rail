@@ -70,7 +70,7 @@ namespace DoDoManBackOffice.Controllers
 
     public class N8NOrderUpdateWebhook
     {
-        public int OrderNumber { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
         public string ChangeType { get; set; } = string.Empty;
         public DateTime UpdatedAt { get; set; }
     }

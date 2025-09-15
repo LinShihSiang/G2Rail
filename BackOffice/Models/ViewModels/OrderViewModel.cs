@@ -6,7 +6,7 @@ namespace DoDoManBackOffice.Models.ViewModels
     public class OrderViewModel
     {
         [Display(Name = "Order Number")]
-        public int OrderNumber { get; set; }
+        public string OrderNumber { get; set; } = string.Empty;
 
         [Display(Name = "Order Date")]
         [DisplayFormat(DataFormatString = "{0:yyyy-MM-dd HH:mm}")]
