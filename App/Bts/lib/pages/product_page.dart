@@ -101,8 +101,8 @@ class _ProductPageState extends State<ProductPage> {
     try {
       // Use the new async search workflow
       final result = await _travelRepo.searchTrainsAsync(
-        _selectedDepartureStation!.name,
-        _arrivalStation!.name,
+        _selectedDepartureStation!.stationCode,
+        _arrivalStation!.stationCode,
         _selectedDate!,
         _selectedTime!,
         _adultCount, // adult
