@@ -4,9 +4,9 @@ import '../services/price_formatter.dart';
 import '../repos/models/product.dart';
 import '../repos/models/product_group.dart';
 import '../repos/germany_tours_repo.dart';
-import 'product_schloss_neuschwanstein_page.dart';
+import 'product_schloss_neuschwanstein_page.dart' as schloss;
 import 'germany_products_page.dart';
-import 'product_page.dart';
+import 'product_page.dart' as general;
 
 class HomePage extends StatefulWidget {
   final ProductRepo repo;
@@ -155,7 +155,7 @@ class ProductCard extends StatelessWidget {
           } else {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => ProductPage(product: product),
+                builder: (context) => schloss.ProductPage(product: product),
               ),
             );
           }
