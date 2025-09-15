@@ -32,6 +32,7 @@ flutter:
 
   assets:
     - assets/images/schloss_neuschwanstein.jpg
+    - assets/images/uffizi_gallery_art.jpg
     - assets/images/germany_products.jpg
     - data/Italy_Germany_tours.json
     - data/80_Germany.json
